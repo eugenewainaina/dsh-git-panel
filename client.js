@@ -39,6 +39,8 @@ window.__ModuleLoader__.load({
       'branch.newPlaceholder': 'New branch name',
       'branch.create': 'Create',
       'branch.loading': 'Loading branches…',
+      'branch.timeout': 'Branches took too long. Reopen the menu to retry.',
+      'branch.none': 'No branches',
       'branch.tags': 'Tags',
       'sync.title': 'Sync',
       'sync.fetch': 'Fetch',
@@ -310,7 +312,7 @@ window.__ModuleLoader__.load({
 .dgp-branch-wrap{position:relative;display:inline-flex;min-width:0}
 .dgp-branch-btn{display:inline-flex;align-items:center;gap:4px;min-width:0;border:0;background:0 0;color:inherit;font:inherit;padding:2px 3px;border-radius:var(--dsw-radius-sm,4px);cursor:pointer}
 .dgp-branch-btn:hover{background:var(--dsw-alias-interactive-bg-hover)}
-.dgp-branch-menu{left:0;right:auto;min-width:230px}
+.dgp-branch-menu{right:0;left:auto;min-width:230px}
 .dgp-sync-menu{min-width:220px}
 .dgp-menu-sub{display:block;color:var(--dsw-alias-label-tertiary);font-size:10.5px;font-weight:400;line-height:1.4;margin-top:1px}
 .dgp-menu-label{padding:4px 7px 2px;color:var(--dsw-alias-label-tertiary);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em}
@@ -2023,7 +2025,7 @@ window.__ModuleLoader__.load({
       );
     }
 
-    function BranchMenu({ summary, branches, branchState, tags, tagsState, t, busy, onSwitch, onCreateTag, onDeleteTag }) {
+    function BranchMenu({ summary, branches, branchState, tags, tagsState, t, busy, onSwitch, onCreateTag, onDeleteTag, onRefreshBranches }) {
       const [open, setOpen] = useState(false);
       const [draft, setDraft] = useState('');
       const [tagDraft, setTagDraft] = useState('');
@@ -2063,7 +2065,10 @@ window.__ModuleLoader__.load({
             'aria-haspopup': 'menu',
             'aria-expanded': open,
             title: t('branch.switch'),
-            onClick: () => setOpen((value) => !value),
+            onClick: () => {
+              setOpen((value) => !value);
+              if (!open && onRefreshBranches) onRefreshBranches();
+            },
           },
           h(BranchChip, {
             branch: summary ? summary.branch : null,
@@ -2078,11 +2083,13 @@ window.__ModuleLoader__.load({
               'div',
               { className: 'dgp-menu dgp-branch-menu', role: 'menu' },
               h('div', { className: 'dgp-menu-label' }, t('branch.switch')),
-              !branchState || branchState.loading
+              branchState && branchState.loading
                 ? h('div', { className: 'dgp-menu-empty' }, h(Spinner), ' ', t('branch.loading'))
-                : branchState.error
+                : branchState && branchState.error
                   ? h('div', { className: 'dgp-menu-empty' }, branchState.error)
-                  : (branches || []).map((branch) =>
+                  : (branches || []).length === 0
+                    ? h('div', { className: 'dgp-menu-empty' }, t('branch.none'))
+                    : (branches || []).map((branch) =>
                       h(
                         'button',
                         {
@@ -2518,6 +2525,7 @@ window.__ModuleLoader__.load({
       tagsState,
       onCreateTag,
       onDeleteTag,
+      onRefreshBranches,
       onFetch,
       onPull,
       onPush,
@@ -2630,6 +2638,7 @@ window.__ModuleLoader__.load({
                   onSwitch: onSwitchBranch,
                   onCreateTag,
                   onDeleteTag,
+                  onRefreshBranches,
                 })
               : null,
             summary ? h(AheadBehind, { ahead: summary.ahead, behind: summary.behind, t }) : null,
@@ -3131,28 +3140,37 @@ window.__ModuleLoader__.load({
       }, [selectedRepo]);
 
       useEffect(() => {
-        if (!selectedRepo || hidden || !visible) {
+        if (!selectedRepo) {
           setBranches([]);
+          setBranchState(null);
           setTags([]);
+          setTagsState(null);
           return undefined;
         }
         let cancelled = false;
-        const controller = new AbortController();
+        let branchTimer = null;
         setBranchState({ loading: true });
         setTagsState({ loading: true });
-        callRpc(call, 'branches', { repo: selectedRepo }, controller.signal)
+        branchTimer = setTimeout(() => {
+          if (!cancelled && alive.current) {
+            setBranchState({ error: t('branch.timeout') });
+          }
+        }, 8_000);
+        callRpc(call, 'branches', { repo: selectedRepo }, undefined)
           .then((value) => {
             if (!cancelled && alive.current) {
+              clearTimeout(branchTimer);
               setBranches(value.branches || []);
               setBranchState(null);
             }
           })
           .catch((error) => {
             if (!cancelled && alive.current && error?.code !== 'aborted') {
+              clearTimeout(branchTimer);
               setBranchState({ error: formatError(error, t) });
             }
           });
-        callRpc(call, 'tags', { repo: selectedRepo }, controller.signal)
+        callRpc(call, 'tags', { repo: selectedRepo }, undefined)
           .then((value) => {
             if (!cancelled && alive.current) {
               setTags(value.tags || []);
@@ -3166,9 +3184,9 @@ window.__ModuleLoader__.load({
           });
         return () => {
           cancelled = true;
-          controller.abort();
+          if (branchTimer) clearTimeout(branchTimer);
         };
-      }, [selectedRepo, branchRefresh, hidden, visible, call]);
+      }, [selectedRepo, branchRefresh, call]);
 
       useEffect(() => {
         if (!sessionId || typeof localStorage === 'undefined') return;
@@ -3751,6 +3769,7 @@ window.__ModuleLoader__.load({
             tagsState,
             onCreateTag: createTag,
             onDeleteTag: deleteTagNow,
+            onRefreshBranches: () => setBranchRefresh((current) => current + 1),
             onFetch: fetchNow,
             onPull: pullNow,
             onPush: pushNow,
