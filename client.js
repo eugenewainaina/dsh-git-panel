@@ -2951,7 +2951,7 @@ window.__ModuleLoader__.load({
         h(IconSearch, { size: 13 }),
         h('input', {
           className: 'dgp-filter-input',
-          type: 'search',
+          type: 'text',
           value,
           placeholder,
           'aria-label': placeholder,
