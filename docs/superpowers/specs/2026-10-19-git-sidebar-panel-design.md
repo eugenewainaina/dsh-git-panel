@@ -1,9 +1,11 @@
 # Git Sidebar Panel — Design Spec
 
-- **Status:** Revised 2026-10-19 after transport research; ready for build go-ahead
+- **Status:** Implemented 2026-10-19; live UI verification pending
 - **Date:** 2026-10-19
 - **Scope:** new persistent Harness plugin (Host + Client halves)
 - **Working name:** `@local/dsh-git-panel`
+
+> This document lives at the plugin repository root. Paths written as `git-panel/…` refer to this repository.
 
 ## 1. Problem
 
@@ -31,7 +33,7 @@ The goal is a guide card named **Git** in the right sidebar's Start page that op
 | Change depth | Status letters + line counts; commit file lists; no diff text |
 | Read-only | Yes |
 | Live updates | Client polling (detail 3s, overview 10s) + host cache |
-| Client↔Host | Generic Connection RPC channel `/git-panel` (`ctx.connection.rpc`) |
+| Client↔Host | Authenticated `/git-panel` route carrying the Connection RPC envelope; client `ctx.connection.rpc.call` |
 | Localization | English UI; all strings through the `gitPanel` locale namespace |
 
 ## 4. User experience
@@ -124,22 +126,22 @@ git-panel/
 
 ### 5.1 Why Connection RPC + polling
 
-The platform's typed RPC (Typert) needs generated artifacts produced by DSH's own build pipeline, which is not exposed for third-party plain-JS bundles. A raw `webServer` route would work in the browser but bypasses the browser trust fence and does not exist in the Desktop `file://` renderer. The generic Connection RPC channel is the middle path:
+The platform's typed RPC (Typert) needs generated artifacts produced by DSH's own build pipeline, which is not exposed for third-party plain-JS bundles. A bare `webServer` route would bypass the browser trust fence, and the generic Connection channel that would avoid that is unavailable here. The bridge therefore pairs a named `webServer` route with Connection's public `requestRejection`, and carries Connection's own RPC envelope so the browser side remains `ctx.connection.rpc.call`.
 
-- Host: `ctx.connection.rpc.handle('/git-panel', handler)` registers a prefix route owned by the plugin context. Connection applies its Host/Origin fence and browser authentication before the handler runs, so only the authenticated owner page can call it. The service registers its route through the reading context's `webServer`, so the host plugin injects both `connection` and `webServer`.
-- Client: `ctx.connection.rpc.call('/git-panel', endpoint, payload, signal)` uses the same transport as every other Remote call, including the Desktop IPC carrier, with no CORS or cookie handling in the plugin.
-- The handler receives `(endpoint, payload, signal, peer)` and returns `{ ok: true, value }` or `{ ok: false, error: { code, message, details } }`.
+- Host: `ctx.connection.rpc.handle('/git-panel', handler)` was the planned channel registration. In this composition it fails with `cannot get property "webServer" without inject`: the service registers its channel through the reading context's `webServer`, and that access is not satisfied here. The host instead registers the same prefix route with `ctx.webServer.register` and calls `ctx.connection.requestRejection({ headers })` before reading the body. That public method applies Connection's Host/Origin fence and browser-cookie authentication. The route speaks Connection's RPC envelope (`client-request` → `server-response`) so the client still calls `ctx.connection.rpc.call`; only the server-side bridge is ours.
+- Client: `ctx.connection.rpc.call('/git-panel', endpoint, payload, signal)` uses the same transport as every other Remote call, with no CORS or cookie handling in the plugin.
+- The handler receives `(endpoint, payload, signal)` from the bridge and returns `{ ok: true, value }` or `{ ok: false, error: { code, message, details } }`.
 
-This is a public service method on `ctx.connection`, not a Typert namespace and not a custom route. It keeps the transport authenticated in Web and Desktop while staying a single, small dispatcher.
+This keeps the route authenticated and inside the browser trust fence without Typert codegen. The tradeoff is that the bridge is reached over the Web carrier's HTTP route; the Desktop `file://` renderer would need the generic channel or a Remote namespace instead.
 
 The client half stays one file: the module loader's `require` exposes React only, and there is no sibling-module resolution or build step. Pure helpers live at the top of `client.js`; the factory exposes them under `__test` so Node can test the lane algorithm by loading the file with a stubbed `window.__ModuleLoader__`.
 
-The body receives a small injected face through the slot registration's `inject` option — `call(method, params, signal)`, `subscribeConnection(listener)`, `connectionState()`, and `pickDirectory()` — so the component never needs the Cordis context. Selection state is React state plus localStorage; no `client-store` dependency.
+The body receives a small face through a wrapper component defined in `apply` — `call(method, params, signal)`, `subscribeConnection(listener)`, `connectionState()`, and `pickDirectory()` — so the component never needs the Cordis context. The face is passed as props from the wrapper rather than through the slot registration's `inject` option: in this runtime that option left the body cell inactive. Selection state is React state plus localStorage; no `client-store` dependency.
 
 ## 6. Host RPC contract
 
 - Channel `/git-panel`, endpoints `discover`, `summary`, `repo`, `commit`. The channel matches Connection's `^/[A-Za-z0-9._~-]+$`; each endpoint matches `^[A-Za-z0-9_$.-]+$`.
-- Host registration: `ctx.connection.rpc.handle('/git-panel', async (endpoint, payload, signal, peer) => result)`. The registration is an effect owned by the plugin context; do not wrap it in another `ctx.effect`.
+- Host registration: `ctx.webServer.register({ kind: 'prefix', path: '/git-panel', handler })` inside `ctx.inject(['webServer'], …)`. The handler first calls `ctx.connection.requestRejection({ headers: req.headers })`; 401/403 ends the request. It then reads a JSON `{ type: 'client-request', rpcId, method, payload }` body and answers `{ type: 'server-response', rpcId, result }`. The registration is owned by the plugin effect.
 - Client call: `ctx.connection.rpc.call('/git-panel', endpoint, payload, signal)`. It resolves to `{ ok: true, value }` or `{ ok: false, error: { code, message, details } }`; transport failures (auth, disconnect, malformed envelope) reject the promise and are handled separately.
 - Business failures are returned, never thrown: a thrown handler becomes a transport 500.
 - Payloads:
@@ -328,7 +330,7 @@ CSS is one stylesheet inserted once in `apply` through a `style[data-plugin-css]
 - `rpc.test.js`: dispatcher validation — unknown endpoint, missing/invalid path, non-hex sha, `fresh` handling, and the business-failure envelope; the handler is called with a fake reader.
 - `graph.test.js`: lane layout for linear, fork, merge, octopus, detached, multiple roots, and a 150-commit run; stable parent lanes, no collisions.
 
-All tests run with `node --test test/`.
+All tests run with `node --test test/*.test.js` (24 tests).
 
 ## 13. Verification
 
@@ -346,8 +348,9 @@ Browser automation is not assumed; steps 4–7 are checked on the user's live pa
 ## 14. Risks
 
 - **Guide entry click**: the shipped Files type includes a `commandId`; the guide's documented fallback opens the entry's kind directly. If the runtime requires a command for the card to act, a small `workspace.git` command is registered; the panel itself does not depend on it.
-- **Connection RPC channel**: `ctx.connection.rpc` is a public service face but is not covered by the plugin authoring docs. If it changes, the fallback is a Typert Remote service or the previously designed `webServer` route; the git reader is independent of the transport.
-- **Desktop transport**: the channel works through the browser transport and the Desktop `__DSH_TRANSPORT__.rpc`; the current target is the Web GUI. If a Desktop composition omits the Connection channel registration, the tab reports the connection error instead of crashing.
+- **Connection channel registration**: `ctx.connection.rpc.handle` is not usable in this composition (it raises `cannot get property "webServer" without inject`). The bridge uses public `webServer.register` plus `connection.requestRejection` and the documented RPC envelope. If those public pieces change, the fallback is a Typert Remote service; the git reader is independent of the transport.
+- **Web-carrier dependency**: the bridge's route is reached over the Web HTTP carrier. The Desktop `file://` renderer would need the generic channel or a Remote namespace; the current target (and verified path) is the Web GUI.
+- **Body slot injection**: passing the face through the slot registration's `inject` option left the body cell inactive. The wrapper component passes the face as props instead; keep that shape when changing the registration.
 - **Standard props** (`sessionId`, `useSessions`) are confirmed by slot inspection and the shipped Files body but could change across Harness versions; a missing cwd degrades to the folder picker.
 - **Polling cost** with many repos; mitigated by caps, cache, concurrency, and a slower overview interval.
 - **Dev iteration**: no `dev:web` watcher is running, so client changes need a page reload and host changes may need a host restart.
@@ -357,7 +360,7 @@ Browser automation is not assumed; steps 4–7 are checked on the user's live pa
 
 - Author the bundle in `git-panel/` in the session workspace.
 - `package.json` declares `dsh.bundle.patch` and `dsh.client` (`platform: web`, `inject: ["@deepseek-ai/dsh-client-connection", "@deepseek-ai/dsh-client-ui-sidebar-right"]`), and exports `.`, `./client`, `./locale/*.json`, and `./icon`.
-- Host `index.js` exports `inject = ['connection', 'webServer']` and registers the channel; the client factory injects `slots`, `locale`, `sidebarRightTabs`, `connection`, and `uiWorkspace`.
+- Host `index.js` exports `inject = ['connection']`, injects `webServer` through a child context, and registers the authenticated `/git-panel` bridge; the client factory injects `slots`, `locale`, `sidebarRightTabs`, `connection`, and `uiWorkspace`.
 - Install with `plugin_manager install_bundle` targeting the directory; never edit the profile's `package.json` or `cordis.patch.yml` by hand.
 - `locale/en.json` carries `meta.title`, `meta.description`, and the `gitPanel` UI strings; `icon.svg` is original branch artwork.
 - Verify the Plugins row and icon after install; the client half registers the guide entry, tab body, and title.
