@@ -5,7 +5,7 @@
 - **Scope:** new persistent Harness plugin (Host + Client halves)
 - **Working name:** `@local/dsh-git-panel`
 
-> This document lives at the plugin repository root. Paths written as `git-panel/…` refer to this repository.
+> This document lives at the plugin repository root. Paths written as `dsh-git-panel/…` refer to this repository.
 
 ## 1. Problem
 
@@ -108,7 +108,7 @@ Pinned header: back arrow (only when the overview has more than one repo), repo 
 One bundle, two halves:
 
 ```
-git-panel/
+dsh-git-panel/
 ├─ package.json          dsh.bundle.patch + dsh.client
 ├─ cordis.patch.yml
 ├─ index.js              host apply: inject connection, register /git-panel handler
@@ -358,7 +358,7 @@ Browser automation is not assumed; steps 4–7 are checked on the user's live pa
 
 ## 15. Delivery
 
-- Author the bundle in `git-panel/` in the session workspace.
+- Author the bundle in `dsh-git-panel/` in the session workspace.
 - `package.json` declares `dsh.bundle.patch` and `dsh.client` (`platform: web`, `inject: ["@deepseek-ai/dsh-client-connection", "@deepseek-ai/dsh-client-ui-sidebar-right"]`), and exports `.`, `./client`, `./locale/*.json`, and `./icon`.
 - Host `index.js` exports `inject = ['connection']`, injects `webServer` through a child context, and registers the authenticated `/git-panel` bridge; the client factory injects `slots`, `locale`, `sidebarRightTabs`, `connection`, and `uiWorkspace`.
 - Install with `plugin_manager install_bundle` targeting the directory; never edit the profile's `package.json` or `cordis.patch.yml` by hand.
