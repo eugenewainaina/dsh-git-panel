@@ -50,6 +50,13 @@ window.__ModuleLoader__.load({
       'sync.pullText': 'Fast-forward only. Local changes or divergence will stop the pull.',
       'sync.pushTitle': 'Push to upstream?',
       'sync.pushText': 'Push the current branch without force to',
+      'tag.none': 'No tags',
+      'tag.newPlaceholder': 'New tag name',
+      'tag.create': 'Create tag',
+      'tag.delete': 'Delete tag',
+      'tag.deleteTitle': 'Delete this tag?',
+      'tag.deleteText': 'This removes the local tag',
+      'tag.deleteConfirm': 'Delete tag',
       'detail.all': 'All',
       'detail.changes': 'Changes',
       'detail.history': 'History',
@@ -313,6 +320,10 @@ window.__ModuleLoader__.load({
 .dgp-branch-create .dgp-filter-input{height:24px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm,4px);padding:0 5px;background:var(--dsw-alias-bg-layer-1)}
 .dgp-branch-create .dgp-btn{height:24px;font-size:11px}
 .dgp-branch-tags{display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:2px 7px 6px}
+.dgp-tag-chip{display:inline-flex;align-items:center;gap:2px;padding:0 2px 0 6px;border:.5px solid var(--dsw-alias-border-l2);border-radius:999px;font-size:10.5px;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-1);min-width:0}
+.dgp-tag-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px}
+.dgp-tag-delete{width:16px;height:16px;border:0;background:0 0;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:1;cursor:pointer;padding:0;border-radius:999px}
+.dgp-tag-delete:hover{color:var(--dsw-alias-state-error-primary);background:var(--dsw-alias-interactive-bg-hover)}
 .dgp-diff-options{flex:none;display:flex;align-items:center;gap:10px;padding:4px 12px;border-bottom:.5px solid var(--dsw-alias-border-l3);flex-wrap:wrap}
 .dgp-select{height:22px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm,4px);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:11px;padding:0 4px}
 .dgp-diff{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.45;min-width:max-content;padding-bottom:4px}
@@ -2012,9 +2023,10 @@ window.__ModuleLoader__.load({
       );
     }
 
-    function BranchMenu({ summary, branches, branchState, tags, tagsState, t, busy, onSwitch }) {
+    function BranchMenu({ summary, branches, branchState, tags, tagsState, t, busy, onSwitch, onCreateTag, onDeleteTag }) {
       const [open, setOpen] = useState(false);
       const [draft, setDraft] = useState('');
+      const [tagDraft, setTagDraft] = useState('');
       const rootRef = useRef(null);
 
       useEffect(() => {
@@ -2118,25 +2130,74 @@ window.__ModuleLoader__.load({
                   t('branch.create'),
                 ),
               ),
+              h('div', { className: 'dgp-menu-divider' }),
+              h('div', { className: 'dgp-menu-label' }, t('branch.tags')),
               (tags || []).length
                 ? h(
-                    React.Fragment,
-                    null,
-                    h('div', { className: 'dgp-menu-divider' }),
-                    h('div', { className: 'dgp-menu-label' }, t('branch.tags')),
-                    h(
-                      'div',
-                      { className: 'dgp-branch-tags' },
-                      tags.map((tag) =>
+                    'div',
+                    { className: 'dgp-branch-tags' },
+                    tags.map((tag) =>
+                      h(
+                        'span',
+                        {
+                          key: tag.name,
+                          className: 'dgp-tag-chip',
+                          title: tag.sha || tag.name,
+                        },
+                        h('span', { className: 'dgp-tag-name' }, tag.name),
                         h(
-                          'span',
-                          { key: tag.name, className: 'dgp-ref dgp-ref-tag', title: tag.sha || tag.name },
-                          tag.name,
+                          'button',
+                          {
+                            type: 'button',
+                            className: 'dgp-tag-delete',
+                            'aria-label': t('tag.delete'),
+                            title: t('tag.delete'),
+                            disabled: busy,
+                            onClick: () => onDeleteTag(tag.name),
+                          },
+                          '×',
                         ),
                       ),
                     ),
                   )
-                : null,
+                : h('div', { className: 'dgp-menu-empty' }, t('tag.none')),
+              h(
+                'div',
+                { className: 'dgp-branch-create' },
+                h('input', {
+                  className: 'dgp-filter-input',
+                  value: tagDraft,
+                  placeholder: t('tag.newPlaceholder'),
+                  disabled: busy,
+                  onChange: (event) => setTagDraft(event.target.value),
+                  onKeyDown: (event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      const name = tagDraft.trim();
+                      if (name) {
+                        onCreateTag(name);
+                        setTagDraft('');
+                      }
+                    }
+                  },
+                }),
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    className: 'dgp-btn',
+                    disabled: busy || tagDraft.trim().length === 0,
+                    onClick: () => {
+                      const name = tagDraft.trim();
+                      if (name) {
+                        onCreateTag(name);
+                        setTagDraft('');
+                      }
+                    },
+                  },
+                  t('tag.create'),
+                ),
+              ),
             )
           : null,
       );
@@ -2455,6 +2516,8 @@ window.__ModuleLoader__.load({
       onSwitchBranch,
       tags,
       tagsState,
+      onCreateTag,
+      onDeleteTag,
       onFetch,
       onPull,
       onPush,
@@ -2565,6 +2628,8 @@ window.__ModuleLoader__.load({
                   t,
                   busy,
                   onSwitch: onSwitchBranch,
+                  onCreateTag,
+                  onDeleteTag,
                 })
               : null,
             summary ? h(AheadBehind, { ahead: summary.ahead, behind: summary.behind, t }) : null,
@@ -3484,6 +3549,26 @@ window.__ModuleLoader__.load({
         });
       };
 
+      const createTag = (name) =>
+        runWrite(async () => {
+          await callRpc(call, 'createTag', { repo: selectedRepo, name }, tab.signal);
+          setBranchRefresh((current) => current + 1);
+        });
+
+      const deleteTagNow = (name) => {
+        setConfirm({
+          title: t('tag.deleteTitle'),
+          message: t('tag.deleteText') + ' ' + name,
+          label: t('tag.deleteConfirm'),
+          danger: true,
+          run: () =>
+            runWrite(async () => {
+              await callRpc(call, 'deleteTag', { repo: selectedRepo, name }, tab.signal);
+              setBranchRefresh((current) => current + 1);
+            }),
+        });
+      };
+
       const commitNow = async () => {
         const message = commitMessage.trim();
         if (!message && !amend) {
@@ -3664,6 +3749,8 @@ window.__ModuleLoader__.load({
             onSwitchBranch: switchBranch,
             tags,
             tagsState,
+            onCreateTag: createTag,
+            onDeleteTag: deleteTagNow,
             onFetch: fetchNow,
             onPull: pullNow,
             onPush: pushNow,

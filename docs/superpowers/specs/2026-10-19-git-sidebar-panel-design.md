@@ -94,7 +94,7 @@ Pinned header: back arrow (only when the overview has more than one repo), repo 
 
 - **All** — one scroll: summary card (branch, upstream, ahead/behind, counts, last commit) → first 5 change entries → latest 8 commits with graph → "View all changes" / "Full history" links that switch sub-tabs.
 - **Changes** — full-height list. Group order: **Conflicts**, **Staged**, **Unstaged**, **Untracked**; empty groups are hidden; headers are collapsible and show counts. Rows carry status letter, dimmed directory + primary filename, `+N −M` when known, rename as `old → new`, and "binary" instead of counts. An untracked directory is one row with a trailing slash. A clean tree shows "Working tree clean." Clicking a row opens its unified diff; an untracked directory row is not clickable.
-- **History** — full-height graph. Each row: lane lines and node, subject (truncated), ref chips (HEAD/local/remote/tag), author and relative time. Clicking a row expands its changed-file list, loaded lazily and cached. A merge commit diffs against its first parent, labelled as such. Clicking a changed file in the expanded list opens its unified diff. Cap 150 with a visible "Showing the latest 150 commits" note; the tab badge shows `150+` when truncated. The header branch chip opens a menu to switch or create local branches and lists the repository's tags. A sync menu offers fetch, fast-forward pull, and push, with confirmation for pull and push. The diff header opens a line-oriented blame view and a file-history list for the current path; a text field filters changes and commits. The diff can switch between unified and side-by-side layouts, ignore whitespace, and change its context size.
+- **History** — full-height graph. Each row: lane lines and node, subject (truncated), ref chips (HEAD/local/remote/tag), author and relative time. Clicking a row expands its changed-file list, loaded lazily and cached. A merge commit diffs against its first parent, labelled as such. Clicking a changed file in the expanded list opens its unified diff. Cap 150 with a visible "Showing the latest 150 commits" note; the tab badge shows `150+` when truncated. The header branch chip opens a menu to switch or create local branches, create a tag at HEAD, and delete local tags. A sync menu offers fetch, fast-forward pull, and push, with confirmation for pull and push. The diff header opens a line-oriented blame view and a file-history list for the current path; a text field filters changes and commits. The diff can switch between unified and side-by-side layouts, ignore whitespace, and change its context size.
 
 ### 4.5 States
 
@@ -158,6 +158,8 @@ The body receives a small face through a wrapper component defined in `apply` �
 | `branches` | `{ repo: string, fresh?: boolean }` | `{ branches: Array<{ name, current, upstream, sha }>, current }` |
 | `switchBranch` | `{ repo: string, name: string, create?: boolean }` | `{ ok: true, branch: string }` |
 | `tags` | `{ repo: string, fresh?: boolean }` | `{ tags: Array<{ name, sha }> }` |
+| `createTag` | `{ repo: string, name: string }` | `{ ok: true, name: string }` |
+| `deleteTag` | `{ repo: string, name: string }` | `{ ok: true, name: string }` |
 | `fetch` | `{ repo: string }` | `{ ok: true, action, output }` |
 | `pull` | `{ repo: string }` | `{ ok: true, action, output }` |
 | `push` | `{ repo: string }` | `{ ok: true, action, output }` |
@@ -272,7 +274,7 @@ All commands use `execFile` (no shell), fixed argv, `-C <repo>`, `-c core.fsmoni
 | File history | `git log --follow --max-count=100 --decorate=full -z --pretty=… -- <path>`; capped at 100 commits. |
 | Branches | `git for-each-ref --format=%(refname:short)%09%(HEAD)%09%(upstream:short)%09%(objectname:short) refs/heads`. |
 | Switch/create | `git switch <name>` or `git switch -c <name>`, after `git check-ref-format --branch`; a dirty tree fails without force. |
-| Tags | `git tag --list --format=%(refname:short)%09%(objectname:short)`. |
+| Tags | `git tag --list --format=%(refname:short)%09%(objectname:short)`. Create at HEAD with `git tag <name>`, delete with `git tag -d <name>`; both validate `refs/tags/<name>`. |
 | Fetch | `git fetch --prune` (60s timeout). |
 | Pull | `git pull --ff-only` (60s timeout); local changes or divergence fail instead of creating a merge. |
 | Push | `git push` (60s timeout); no force, requires an upstream. |
@@ -379,7 +381,7 @@ All tests run with `node --test test/*.test.js` (24 tests).
 7. Edge states: empty folder, non-repo, empty repo, detached HEAD, light/dark, 360px.
 8. Write core: stage a file, commit it, amend it, discard an unstaged edit after confirming, and undo the last commit; each result is reflected in `git status` and the panel.
 9. Inspection: filter the change list and commit graph, toggle unified/side-by-side, whitespace, and context in a diff, open blame, and browse the file's history from the diff header.
-10. Branches: switch to a new branch, create one from the header menu, and confirm the tags list.
+10. Branches: switch to a new branch, create one from the header menu, create and delete a tag, and confirm the tags list.
 11. Sync: fetch a local remote, fast-forward pull a new commit, and push a local commit; a failed pull/push surfaces in the error banner.
 
 Browser automation is not assumed; steps 4–7 are checked on the user's live page. If a headless browser can load the same URL, it is used for screenshots as well. Any step that cannot be verified is reported rather than claimed.

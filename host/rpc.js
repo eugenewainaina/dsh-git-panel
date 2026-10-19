@@ -185,6 +185,17 @@ export function createDispatcher(reader) {
           const repo = asAbsolutePath(params.repo, 'repo');
           return ok(await reader.tags(repo, { fresh: params.fresh === true, signal }));
         }
+        case 'createTag':
+        case 'deleteTag': {
+          const repo = asAbsolutePath(params.repo, 'repo');
+          if (typeof params.name !== 'string' || params.name.length === 0 || params.name.length > 200) {
+            const error = new Error('name must be a tag name.');
+            error.code = 'bad-request';
+            error.details = { field: 'name' };
+            throw error;
+          }
+          return ok(await reader[endpoint](repo, { name: params.name, signal }));
+        }
         case 'fetch':
         case 'pull':
         case 'push': {

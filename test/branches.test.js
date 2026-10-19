@@ -46,8 +46,14 @@ test('branches list, switch, create, and tags', async () => {
       (error) => error.code === 'bad-request',
     );
 
-    const tags = await reader.tags(repo);
+    let tags = await reader.tags(repo);
     assert.deepEqual(tags.tags.map((tag) => tag.name), ['v1']);
+    await reader.createTag(repo, { name: 'v2' });
+    tags = await reader.tags(repo, { fresh: true });
+    assert.ok(tags.tags.some((tag) => tag.name === 'v2'));
+    await reader.deleteTag(repo, { name: 'v2' });
+    tags = await reader.tags(repo, { fresh: true });
+    assert.ok(!tags.tags.some((tag) => tag.name === 'v2'));
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }

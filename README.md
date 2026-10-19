@@ -19,8 +19,8 @@ working tree, branches, and commit graph.
   blame for the current file, and browse that file's commit history from a diff.
 - **Write core** — stage/unstage files, commit, amend, sign off, discard a
   working-tree change after confirmation, and undo the last commit.
-- **Branches and tags** — switch or create a local branch from the header, and
-  see the repository's tags in the same menu.
+- **Branches and tags** — switch or create a local branch from the header,
+  create a tag at HEAD, and delete local tags.
 - **Sync** — fetch, fast-forward pull, and push the current branch, with
   confirmation for pull/push; no force operations.
 
@@ -131,7 +131,8 @@ supplied by the host's module table. Host modules are plain ESM.
 ## Limitations
 
 - Pulls are `--ff-only`; there is no merge/rebase, force push, stash, or
-  conflict resolution. Tag creation/deletion is not exposed; tags are listed.
+  conflict resolution.
+- Tags are created at HEAD; annotated tags and tag pushes are not implemented.
 - Network operations need an upstream branch and working credentials; prompts
   are disabled, so an auth failure surfaces as an error.
 - Staging is file-level; hunk and line staging are not implemented.

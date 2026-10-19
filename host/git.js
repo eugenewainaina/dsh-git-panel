@@ -891,6 +891,47 @@ export function createReader(options = {}) {
     });
   }
 
+  /**
+   * @param {string} repo
+   * @param {{ name?: string, sha?: string, signal?: AbortSignal }} request
+   */
+  async function createTag(repo, request = {}) {
+    const name = typeof request.name === 'string' ? request.name.trim() : '';
+    if (!name || name.length > 200 || name.startsWith('-')) {
+      throw panelError('bad-request', 'Invalid tag name.');
+    }
+    return writeAction(async () => {
+      const root = await resolveRoot(repo, request.signal, false);
+      if (!root) throw panelError('not-a-repo', 'That folder is not inside a git repository.');
+      try {
+        await git(root, ['check-ref-format', `refs/tags/${name}`], request.signal);
+      } catch {
+        throw panelError('bad-request', 'Invalid tag name.');
+      }
+      const args = ['tag', name];
+      if (request.sha) args.push(request.sha);
+      await git(root, args, request.signal);
+      return { ok: true, name };
+    });
+  }
+
+  /**
+   * @param {string} repo
+   * @param {{ name?: string, signal?: AbortSignal }} request
+   */
+  async function deleteTag(repo, request = {}) {
+    const name = typeof request.name === 'string' ? request.name.trim() : '';
+    if (!name || name.length > 200 || name.startsWith('-')) {
+      throw panelError('bad-request', 'Invalid tag name.');
+    }
+    return writeAction(async () => {
+      const root = await resolveRoot(repo, request.signal, false);
+      if (!root) throw panelError('not-a-repo', 'That folder is not inside a git repository.');
+      await git(root, ['tag', '-d', name], request.signal);
+      return { ok: true, name };
+    });
+  }
+
   return {
     discover,
     summary,
@@ -907,6 +948,8 @@ export function createReader(options = {}) {
     branches,
     switchBranch,
     tags,
+    createTag,
+    deleteTag,
     sync,
   };
 }
