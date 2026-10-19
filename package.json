@@ -16,7 +16,9 @@
     "client.js",
     "cordis.patch.yml",
     "locale/*.json",
-    "icon.svg"
+    "icon.svg",
+    "README.md",
+    "LICENSE"
   ],
   "dsh": {
     "bundle": {
@@ -30,5 +32,6 @@
         "@deepseek-ai/dsh-client-ui-sidebar-right"
       ]
     }
-  }
+  },
+  "license": "MIT"
 }
