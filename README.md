@@ -45,6 +45,24 @@ To update after editing, reload the page for client changes; host changes may
 need the bundle disabled/re-enabled or a host restart, because the package is
 linked rather than rebuilt.
 
+### Install from a shared repository
+
+Once this repository is pushed, a friend does not need a local clone:
+
+1. In their DSH Web GUI, open a Creator-mode session and ask the agent:
+
+   > Install the DSH plugin bundle from `github:<user>/dsh-git-panel`.
+
+   The agent passes that spec to `plugin_manager install_bundle`; the manager
+   fetches the repository into their profile. No npm publish is required.
+2. If their Plugin Manager build does not accept a git spec, clone the repository
+   and install its absolute path as described above.
+3. Reload the page and open **Start → Git**.
+
+The same requirements apply: a compatible DSH **Web GUI**, `git` on `PATH`, and
+permission to install profile plugins. A private repository additionally needs
+that person's Git credentials.
+
 ## Use
 
 1. Open **Git** from the Start page.
