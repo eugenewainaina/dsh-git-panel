@@ -101,6 +101,48 @@ export function createDispatcher(reader) {
             }),
           );
         }
+        case 'stage':
+        case 'unstage': {
+          const repo = asAbsolutePath(params.repo, 'repo');
+          return ok(await reader[endpoint](repo, { paths: params.paths, all: params.all === true, signal }));
+        }
+        case 'discard': {
+          const repo = asAbsolutePath(params.repo, 'repo');
+          if (!['unstaged', 'untracked'].includes(params.group)) {
+            const error = new Error('group must be unstaged or untracked.');
+            error.code = 'bad-request';
+            error.details = { field: 'group' };
+            throw error;
+          }
+          return ok(
+            await reader.discard(repo, {
+              paths: params.paths,
+              group: params.group,
+              signal,
+            }),
+          );
+        }
+        case 'commitStaged': {
+          const repo = asAbsolutePath(params.repo, 'repo');
+          if (typeof params.message !== 'string') {
+            const error = new Error('message must be a string.');
+            error.code = 'bad-request';
+            error.details = { field: 'message' };
+            throw error;
+          }
+          return ok(
+            await reader.commitStaged(repo, {
+              message: params.message,
+              amend: params.amend === true,
+              signoff: params.signoff === true,
+              signal,
+            }),
+          );
+        }
+        case 'undo': {
+          const repo = asAbsolutePath(params.repo, 'repo');
+          return ok(await reader.undo(repo, { signal }));
+        }
         default:
           return fail('bad-request', `Unknown endpoint: ${String(endpoint)}`);
       }

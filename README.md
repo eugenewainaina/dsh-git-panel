@@ -14,7 +14,10 @@ working tree, branches, and commit graph.
   when the tab is hidden.
 - **Diffs** — click a changed file or a commit file to see the unified diff
   with line numbers and colored hunks.
-- **Read-only** — no stage, commit, discard, checkout, fetch, or push, ever.
+- **Write core** — stage/unstage files, commit, amend, sign off, discard a
+  working-tree change after confirmation, and undo the last commit.
+- **No network operations** — fetching, pulling, pushing, branches, and history
+  rewriting are not implemented yet.
 
 ## Requirements
 
@@ -111,17 +114,21 @@ node --check client.js
 node --test test/*.test.js
 ```
 
-27 tests cover the parsers against synthetic and real temporary repositories
-(including merges, renames, conflicts, worktrees, and unborn branches), the
-repository scanner, the RPC dispatcher, the HTTP envelope bridge, the commit
-lane layout, and the unified-diff parser.
+29 tests cover the parsers against synthetic and real temporary repositories
+(including merges, renames, conflicts, worktrees, unborn branches, and the write
+operations), the repository scanner, the RPC dispatcher, the HTTP envelope
+bridge, the commit lane layout, and the unified-diff parser.
 
 `client.js` is plain JavaScript with no JSX and no bundler step; React is
 supplied by the host's module table. Host modules are plain ESM.
 
 ## Limitations
 
-- Read-only: no write operations.
+- No network operations yet: no fetch, pull, push, branch switching, rebase,
+  stash, tags, or conflict resolution.
+- Staging is file-level; hunk and line staging are not implemented.
+- Discard and undo are confirmed, but they are real local writes. Commits can
+  run the repository's hooks, exactly as `git commit` would.
 - Web GUI only: the route bridge is reached over the Web HTTP carrier.
 - Repository discovery is one level deep; nested repositories are not scanned.
 - History is capped at 150 commits, status at 1000 entries, discovery at 100

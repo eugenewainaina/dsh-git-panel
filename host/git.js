@@ -115,6 +115,7 @@ export function createReader(options = {}) {
   const limiter = createLimiter(options.concurrency ?? 3);
   const cache = createCache();
   const inflight = new Map();
+  let writeChain = Promise.resolve();
 
   const env = { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_PAGER: 'cat' };
   for (const key of [
@@ -191,6 +192,40 @@ export function createReader(options = {}) {
     });
     inflight.set(key, promise);
     return promise;
+  }
+
+  /**
+   * Serialize writes and invalidate the read caches once they settle.
+   * @template T
+   * @param {() => Promise<T>} task
+   * @returns {Promise<T>}
+   */
+  function writeAction(task) {
+    const run = writeChain.then(task, task);
+    writeChain = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run.finally(() => {
+      cache.clear();
+      inflight.clear();
+    });
+  }
+
+  /**
+   * @param {unknown} values
+   * @returns {string[]}
+   */
+  function relativePaths(values) {
+    if (!Array.isArray(values) || values.length === 0 || values.length > 200) {
+      throw panelError('bad-request', 'Provide between 1 and 200 file paths.');
+    }
+    const paths = [];
+    for (const value of values) {
+      const path = relativeRepoPath(value);
+      if (!paths.includes(path)) paths.push(path);
+    }
+    return paths;
   }
 
   /**
@@ -580,5 +615,137 @@ export function createReader(options = {}) {
     });
   }
 
-  return { discover, summary, repo: repoDetail, commit, diff };
+  /**
+   * @param {string} repo
+   * @param {{ paths?: string[], all?: boolean, signal?: AbortSignal }} request
+   */
+  async function stage(repo, request = {}) {
+    return writeAction(async () => {
+      const root = await resolveRoot(repo, request.signal, false);
+      if (!root) throw panelError('not-a-repo', 'That folder is not inside a git repository.');
+      if (request.all === true) {
+        await git(root, ['add', '-A'], request.signal);
+      } else {
+        const paths = relativePaths(request.paths);
+        await git(root, ['add', '-A', '--', ...paths], request.signal);
+      }
+      return { ok: true };
+    });
+  }
+
+  /**
+   * @param {string} repo
+   * @param {{ paths?: string[], all?: boolean, signal?: AbortSignal }} request
+   */
+  async function unstage(repo, request = {}) {
+    return writeAction(async () => {
+      const root = await resolveRoot(repo, request.signal, false);
+      if (!root) throw panelError('not-a-repo', 'That folder is not inside a git repository.');
+      const paths = request.all === true ? null : relativePaths(request.paths);
+      const range = paths === null ? ['.'] : paths;
+      try {
+        await git(
+          root,
+          ['restore', '--staged', '--', ...range],
+          request.signal,
+        );
+      } catch (error) {
+        // An unborn branch has no HEAD to restore from; drop the index entries.
+        if (!/HEAD|ambiguous argument|resolve/i.test(error.message)) throw error;
+        await git(
+          root,
+          paths === null ? ['rm', '-r', '--cached', '--', '.'] : ['rm', '--cached', '--', ...paths],
+          request.signal,
+        );
+      }
+      return { ok: true };
+    });
+  }
+
+  /**
+   * @param {string} repo
+   * @param {{ paths?: string[], group?: string, signal?: AbortSignal }} request
+   */
+  async function discard(repo, request = {}) {
+    return writeAction(async () => {
+      const group = request.group;
+      if (group !== 'unstaged' && group !== 'untracked') {
+        throw panelError('bad-request', 'Discard supports unstaged and untracked changes.');
+      }
+      const paths = relativePaths(request.paths);
+      const root = await resolveRoot(repo, request.signal, false);
+      if (!root) throw panelError('not-a-repo', 'That folder is not inside a git repository.');
+      if (group === 'untracked') {
+        await git(root, ['clean', '-f', '-d', '--', ...paths], request.signal);
+      } else {
+        await git(root, ['restore', '--worktree', '--', ...paths], request.signal);
+      }
+      return { ok: true };
+    });
+  }
+
+  /**
+   * @param {string} repo
+   * @param {{ message?: string, amend?: boolean, signoff?: boolean, signal?: AbortSignal }} request
+   */
+  async function commitStaged(repo, request = {}) {
+    return writeAction(async () => {
+      const message = typeof request.message === 'string' ? request.message.trim() : '';
+      if ((!message && request.amend !== true) || message.length > 10_000 || message.includes('\0')) {
+        throw panelError('bad-request', 'A commit message is required (up to 10,000 characters).');
+      }
+      const root = await resolveRoot(repo, request.signal, false);
+      if (!root) throw panelError('not-a-repo', 'That folder is not inside a git repository.');
+
+      const args = ['commit'];
+      if (request.amend === true) args.push('--amend');
+      if (message) args.push('-m', message);
+      else args.push('--no-edit');
+      if (request.signoff === true) args.push('--signoff');
+
+      const output = await git(root, args, request.signal);
+      const sha = (await git(root, ['rev-parse', 'HEAD'], request.signal)).trim();
+      return { ok: true, sha, output: output.slice(0, 2000) };
+    });
+  }
+
+  /**
+   * @param {string} repo
+   * @param {{ signal?: AbortSignal }} request
+   */
+  async function undoCommit(repo, request = {}) {
+    return writeAction(async () => {
+      const root = await resolveRoot(repo, request.signal, false);
+      if (!root) throw panelError('not-a-repo', 'That folder is not inside a git repository.');
+      let count;
+      try {
+        count = Number((await git(root, ['rev-list', '--count', 'HEAD'], request.signal)).trim());
+      } catch (error) {
+        if (error.code === 'git-failed') throw panelError('bad-request', 'There is no commit to undo.');
+        throw error;
+      }
+      if (!Number.isFinite(count) || count < 1) {
+        throw panelError('bad-request', 'There is no commit to undo.');
+      }
+      if (count > 1) {
+        await git(root, ['reset', '--soft', 'HEAD^'], request.signal);
+      } else {
+        await git(root, ['update-ref', '-d', 'HEAD'], request.signal);
+      }
+      return { ok: true };
+    });
+  }
+
+  return {
+    discover,
+    summary,
+    repo: repoDetail,
+    commit,
+    diff,
+    stage,
+    unstage,
+    discard,
+    commitStaged,
+    undo: undoCommit,
+  };
 }

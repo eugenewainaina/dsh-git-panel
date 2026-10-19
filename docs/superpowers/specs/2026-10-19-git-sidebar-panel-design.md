@@ -1,6 +1,6 @@
 # Git Sidebar Panel — Design Spec
 
-- **Status:** Implemented 2026-10-19; live UI verification pending
+- **Status:** Implemented 2026-10-19; write core added; live UI verification pending
 - **Date:** 2026-10-19
 - **Scope:** new persistent Harness plugin (Host + Client halves)
 - **Working name:** `@local/dsh-git-panel`
@@ -15,7 +15,7 @@ The goal is a guide card named **Git** in the right sidebar's Start page that op
 
 ## 2. Non-goals
 
-- No write operations: no stage, unstage, commit, discard, checkout, pull, push, or fetch.
+- No network or history-rewriting operations: no fetch, pull, push, checkout, branch switching, merge, rebase, cherry-pick, reset, or stash. Local stage/unstage/commit/amend/discard/undo are implemented.
 - Write actions remain out of scope. The read-only unified diff is implemented.
 - No opening a changed file or commit file in the editor/preview.
 - No recursive repo scan below one level, no multi-repo merged change feed, no remote-branch lanes, no commit pagination.
@@ -31,7 +31,7 @@ The goal is a guide card named **Git** in the right sidebar's Start page that op
 | Detail layout | Sub-tabs **All / Changes / History**, default **All** |
 | History | Lane-drawn commit graph, all local branches + tags + HEAD, 150 commits |
 | Change depth | Status letters + line counts; commit file lists; unified diff on click |
-| Read-only | Yes |
+| Local writes | Stage/unstage, commit/amend/sign-off, discard with confirmation, undo last commit; no network operations |
 | Live updates | Client polling (detail 3s, overview 10s) + host cache |
 | Client↔Host | Authenticated `/git-panel` route carrying the Connection RPC envelope; client `ctx.connection.rpc.call` |
 | Localization | English UI; all strings through the `gitPanel` locale namespace |
@@ -153,6 +153,10 @@ The body receives a small face through a wrapper component defined in `apply` �
 | `repo` | `{ repo: string, fresh?: boolean }` | `RepoValue` |
 | `commit` | `{ repo: string, sha: string }` | `CommitValue` |
 | `diff` | `{ repo: string, path: string, group: 'staged' \| 'unstaged' \| 'untracked' \| 'conflict' \| 'commit', sha?: string, fresh?: boolean }` | `DiffValue` |
+| `stage` / `unstage` | `{ repo: string, paths?: string[], all?: boolean }` | `{ ok: true }` |
+| `discard` | `{ repo: string, paths: string[], group: 'unstaged' \| 'untracked' }` | `{ ok: true }` |
+| `commitStaged` | `{ repo: string, message: string, amend?: boolean, signoff?: boolean }` | `{ ok: true, sha: string, output: string }` |
+| `undo` | `{ repo: string }` | `{ ok: true }` |
 
 `fresh: true` bypasses the host TTL caches and is sent only by manual refresh. Paths are absolute; `sha` must match `/^[0-9a-f]{4,64}$/i` before it reaches git. The handler validates every payload and returns `bad-request` rather than throwing. `summary`, `repo`, and `commit` resolve the containing repository root with a cached `rev-parse --show-toplevel`, so a subdirectory path works; the value's `repo` is that resolved root.
 
@@ -341,6 +345,7 @@ CSS is one stylesheet inserted once in `apply` through a `style[data-plugin-css]
 - `discover.test.js`: temp dirs with `.git` directory and worktree `.git` file; depth-1 only; hidden and `node_modules` skipped; symlinks skipped; cap.
 - `graph.test.js`: lane layout for linear, fork, merge, octopus, detached, and a 150-commit run; stable parent lanes, no collisions.
 - `git-fixture.test.js`: creates real temp repos with two branches and a merge, a rename (verified through `-M`), a conflict, an unborn repo, a worktree `.git` file, staged/untracked/binary files; asserts the reader and diff reader end-to-end and that `git status` before/after is identical.
+- `write.test.js`: stages, unstages (including an unborn branch), commits, amends, discards an unstaged change, deletes an untracked file, and undoes the first and a later commit.
 - `rpc.test.js`: dispatcher validation — unknown endpoint, missing/invalid path, non-hex sha, `fresh` handling, and the business-failure envelope; the handler is called with a fake reader.
 - `graph.test.js`: lane layout for linear, fork, merge, octopus, detached, multiple roots, and a 150-commit run; stable parent lanes, no collisions.
 
@@ -355,7 +360,7 @@ All tests run with `node --test test/*.test.js` (24 tests).
 5. Live update: edit a file in a watched repo; counts change within ~3s without manual refresh.
 6. Reload: folder/repo/view persist.
 7. Edge states: empty folder, non-repo, empty repo, detached HEAD, light/dark, 360px.
-8. Read-only proof: `git status` for each watched repo is identical before and after.
+8. Write core: stage a file, commit it, amend it, discard an unstaged edit after confirming, and undo the last commit; each result is reflected in `git status` and the panel.
 
 Browser automation is not assumed; steps 4–7 are checked on the user's live page. If a headless browser can load the same URL, it is used for screenshots as well. Any step that cannot be verified is reported rather than claimed.
 
@@ -382,6 +387,5 @@ Browser automation is not assumed; steps 4–7 are checked on the user's live pa
 ## 16. Future work
 
 - File opening in the Document tab where the path is inside the session workspace.
-- Stage / unstage / commit with approval plumbing.
 - Push-based streams instead of polling, via a Remote service or SSE.
 - Recursive scan, repo pinning, combined multi-repo changes, remote-branch lanes, commit pagination.

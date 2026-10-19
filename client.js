@@ -30,7 +30,8 @@ window.__ModuleLoader__.load({
       'action.choose': 'Choose folder',
       'action.viewAll': 'View all changes',
       'action.fullHistory': 'Full history',
-      'action.backToChanges': 'Back to changes',
+      'action.backToChanges': 'Back',
+      'action.cancel': 'Cancel',
       'detail.all': 'All',
       'detail.changes': 'Changes',
       'detail.history': 'History',
@@ -48,7 +49,20 @@ window.__ModuleLoader__.load({
       'changes.truncated': 'Showing the first 1000 changes.',
       'changes.binary': 'binary',
       'changes.files': 'files',
+      'changes.stageAll': 'Stage all',
+      'changes.unstageAll': 'Unstage all',
+      'changes.stage': 'Stage',
+      'changes.unstage': 'Unstage',
+      'changes.discard': 'Discard',
+      'changes.discardTitle': 'Discard changes?',
+      'changes.discardText': 'This permanently discards the working-tree changes for',
+      'changes.discardUntrackedText': 'This permanently deletes the untracked file',
+      'changes.discardConfirm': 'Discard',
       'history.empty': 'No commits yet',
+      'history.undo': 'Undo last commit',
+      'history.undoTitle': 'Undo the last commit?',
+      'history.undoText': 'The commit is removed and its changes stay in the working tree.',
+      'history.undoConfirm': 'Undo commit',
       'history.noFiles': 'No file changes',
       'history.vsFirstParent': 'vs first parent',
       'history.showing': 'Showing the latest 150 commits.',
@@ -71,6 +85,12 @@ window.__ModuleLoader__.load({
       'loading': 'Loading…',
       'commit.loading': 'Loading files…',
       'commit.error': 'Could not load this commit.',
+      'commit.placeholder': 'Commit message',
+      'commit.action': 'Commit',
+      'commit.amend': 'Amend',
+      'commit.signoff': 'Sign-off',
+      'commit.staged': 'staged',
+      'commit.needMessage': 'Write a commit message first.',
       'diff.open': 'View diff',
       'diff.loading': 'Loading diff…',
       'diff.binary': 'Binary file — no text diff.',
@@ -133,10 +153,33 @@ window.__ModuleLoader__.load({
 .dgp-group-head:hover{color:var(--dsw-alias-label-primary)}
 .dgp-group-title{font-weight:600;font-size:11.5px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .dgp-group-count{color:var(--dsw-alias-label-tertiary);font-size:11px}
-.dgp-change{width:100%;box-sizing:border-box;display:flex;align-items:center;gap:6px;padding:2px 12px;min-height:26px;min-width:0;border:0;background:0 0;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.dgp-change{display:flex;align-items:center;min-width:0;min-height:26px;padding:0 4px 0 0;border-radius:var(--dsw-radius-sm,4px)}
 .dgp-change:hover{background:var(--dsw-alias-interactive-bg-hover)}
-.dgp-change:disabled{cursor:default;opacity:.65}
-.dgp-change:disabled:hover{background:0 0}
+.dgp-change-main{flex:1;min-width:0;display:flex;align-items:center;gap:6px;padding:2px 4px 2px 12px;min-height:26px;border:0;background:0 0;color:inherit;font:inherit;text-align:left;cursor:pointer;border-radius:var(--dsw-radius-sm,4px)}
+.dgp-change-main:disabled{cursor:default;opacity:.65}
+.dgp-change-actions{display:flex;align-items:center;flex:none;opacity:.55}
+.dgp-change:hover .dgp-change-actions,.dgp-change:focus-within .dgp-change-actions{opacity:1}
+.dgp-change-actions .dgp-icon-btn{width:22px;height:22px}
+.dgp-changes-view,.dgp-history-view{display:flex;flex-direction:column;min-width:0}
+.dgp-commit-box{position:sticky;top:0;z-index:5;display:flex;flex-direction:column;gap:6px;padding:8px 12px;border-bottom:.5px solid var(--dsw-alias-border-l3);background:var(--dsw-alias-bg-base)}
+.dgp-textarea{width:100%;box-sizing:border-box;min-height:46px;max-height:140px;resize:vertical;padding:6px 8px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm,4px);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;line-height:1.45}
+.dgp-textarea:focus{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:0}
+.dgp-textarea::placeholder{color:var(--dsw-alias-label-tertiary)}
+.dgp-commit-row{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
+.dgp-commit-row .dgp-btn{height:24px;font-size:11.5px}
+.dgp-check{display:inline-flex;align-items:center;gap:4px;color:var(--dsw-alias-label-secondary);font-size:11px;cursor:pointer;white-space:nowrap}
+.dgp-check input{accent-color:var(--dsw-alias-brand-primary);width:12px;height:12px;margin:0}
+.dgp-commit-count{margin-left:auto;color:var(--dsw-alias-label-tertiary);font-size:11px;white-space:nowrap}
+.dgp-changes-toolbar{display:flex;align-items:center;gap:6px;padding:6px 12px;border-bottom:.5px solid var(--dsw-alias-border-l3);min-width:0;flex-wrap:wrap}
+.dgp-changes-toolbar .dgp-btn{height:24px;font-size:11.5px}
+.dgp-error-banner{margin:6px 12px;padding:6px 8px;border-radius:var(--dsw-radius-sm,4px);background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 12%,transparent);color:var(--dsw-alias-state-error-primary);font-size:11.5px;line-height:1.45;overflow-wrap:anywhere}
+.dgp-btn-danger{color:var(--dsw-alias-state-error-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary) 55%,transparent)}
+.dgp-btn-danger:hover{background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 10%,transparent)}
+.dgp-modal-backdrop{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.38)}
+.dgp-modal{width:min(340px,100%);display:flex;flex-direction:column;gap:8px;padding:14px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md,8px);background:var(--dsw-alias-bg-overlay);box-shadow:0 18px 50px rgba(0,0,0,.35)}
+.dgp-modal-title{font-size:13px;font-weight:600;color:var(--dsw-alias-label-primary)}
+.dgp-modal-text{font-size:12px;line-height:1.5;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere}
+.dgp-modal-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:2px}
 .dgp-status{width:14px;flex:none;text-align:center;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;font-weight:600;line-height:1}
 .dgp-st-m{color:var(--dsw-alias-state-warn-primary)}
 .dgp-st-a{color:var(--dsw-alias-state-success-primary)}
@@ -655,6 +698,37 @@ window.__ModuleLoader__.load({
       );
     }
 
+    function IconPlus({ size = 13 }) {
+      return h(
+        'svg',
+        { className: 'dgp-icon', viewBox: '0 0 24 24', width: size, height: size, fill: 'none', 'aria-hidden': true },
+        [
+          h('path', { key: 'h', d: 'M12 5v14', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' }),
+          h('path', { key: 'v', d: 'M5 12h14', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' }),
+        ],
+      );
+    }
+
+    function IconMinus({ size = 13 }) {
+      return h(
+        'svg',
+        { className: 'dgp-icon', viewBox: '0 0 24 24', width: size, height: size, fill: 'none', 'aria-hidden': true },
+        h('path', { d: 'M5 12h14', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' }),
+      );
+    }
+
+    function IconTrash({ size = 13 }) {
+      return h(
+        'svg',
+        { className: 'dgp-icon', viewBox: '0 0 24 24', width: size, height: size, fill: 'none', 'aria-hidden': true },
+        [
+          h('path', { key: 'lid', d: 'M4 7h16', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' }),
+          h('path', { key: 'body', d: 'M7 7v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7', stroke: 'currentColor', strokeWidth: 1.7, strokeLinejoin: 'round' }),
+          h('path', { key: 'top', d: 'M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2', stroke: 'currentColor', strokeWidth: 1.7, strokeLinejoin: 'round' }),
+        ],
+      );
+    }
+
     function GuideArtwork() {
       return h(
         'svg',
@@ -775,7 +849,16 @@ window.__ModuleLoader__.load({
       );
     }
 
-    function ChangeRow({ change, t, onSelect }) {
+    function ChangeRow({
+      change,
+      t,
+      onSelect,
+      showActions,
+      onStage,
+      onUnstage,
+      onDiscard,
+      busy,
+    }) {
       const isRename = (change.status === 'R' || change.status === 'C') && change.oldPath;
       const stats = [];
       if (change.binary) {
@@ -802,29 +885,97 @@ window.__ModuleLoader__.load({
         pathNode = h(PathLabel, { value: change.path });
       }
 
-      const disabled = change.group === 'untracked' && change.path.endsWith('/');
+      const isDirectory = change.group === 'untracked' && change.path.endsWith('/');
+      const canStage = change.group === 'unstaged' || change.group === 'untracked';
+      const canUnstage = change.group === 'staged';
+      const canDiscard = change.group === 'unstaged' || change.group === 'untracked';
+      const actions = [];
+
+      if (showActions && !isDirectory) {
+        if (canStage) {
+          actions.push(
+            h(
+              IconButton,
+              {
+                key: 'stage',
+                label: t('changes.stage'),
+                disabled: busy,
+                onClick: () => onStage && onStage(change),
+              },
+              h(IconPlus, { size: 12 }),
+            ),
+          );
+        }
+        if (canUnstage) {
+          actions.push(
+            h(
+              IconButton,
+              {
+                key: 'unstage',
+                label: t('changes.unstage'),
+                disabled: busy,
+                onClick: () => onUnstage && onUnstage(change),
+              },
+              h(IconMinus, { size: 12 }),
+            ),
+          );
+        }
+        if (canDiscard) {
+          actions.push(
+            h(
+              IconButton,
+              {
+                key: 'discard',
+                label: t('changes.discard'),
+                disabled: busy,
+                onClick: () => onDiscard && onDiscard(change),
+              },
+              h(IconTrash, { size: 12 }),
+            ),
+          );
+        }
+      }
+
       return h(
-        'button',
-        {
-          type: 'button',
-          className: 'dgp-change',
-          onClick: () => {
-            if (onSelect) onSelect(change);
-          },
-          disabled,
-          title: disabled ? undefined : t('diff.open'),
-        },
+        'div',
+        { className: 'dgp-change' },
         h(
-          'span',
-          { className: 'dgp-status ' + statusClass(change.status), title: change.status },
-          change.status,
+          'button',
+          {
+            type: 'button',
+            className: 'dgp-change-main',
+            onClick: () => {
+              if (onSelect && !isDirectory) onSelect(change);
+            },
+            disabled: isDirectory,
+            title: isDirectory ? undefined : t('diff.open'),
+          },
+          h(
+            'span',
+            { className: 'dgp-status ' + statusClass(change.status), title: change.status },
+            change.status,
+          ),
+          pathNode,
+          stats.length ? h('span', { className: 'dgp-stats' }, stats) : null,
         ),
-        pathNode,
-        stats.length ? h('span', { className: 'dgp-stats' }, stats) : null,
+        actions.length
+          ? h('span', { className: 'dgp-change-actions' }, actions)
+          : null,
       );
     }
 
-    function ChangesList({ changes, t, truncated, onSelect, showStats }) {
+    function ChangesList({
+      changes,
+      t,
+      truncated,
+      onSelect,
+      showStats,
+      showActions,
+      onStage,
+      onUnstage,
+      onDiscard,
+      busy,
+    }) {
       const [collapsed, setCollapsed] = useState({});
       const groups = useMemo(() => groupedChanges(changes), [changes]);
       const totals = useMemo(() => {
@@ -889,6 +1040,11 @@ window.__ModuleLoader__.load({
                     change,
                     t,
                     onSelect,
+                    showActions,
+                    onStage,
+                    onUnstage,
+                    onDiscard,
+                    busy,
                   }),
                 ),
           ),
@@ -1323,6 +1479,137 @@ window.__ModuleLoader__.load({
       );
     }
 
+    function ConfirmDialog({ title, message, confirmLabel, danger, t, onConfirm, onCancel }) {
+      const confirmRef = useRef(null);
+      useEffect(() => {
+        confirmRef.current?.focus();
+        const onKey = (event) => {
+          if (event.key === 'Escape') onCancel();
+        };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+      }, [onCancel]);
+
+      return h(
+        'div',
+        {
+          className: 'dgp-modal-backdrop',
+          onMouseDown: (event) => {
+            if (event.target === event.currentTarget) onCancel();
+          },
+        },
+        h(
+          'div',
+          {
+            className: 'dgp-modal',
+            role: 'dialog',
+            'aria-modal': 'true',
+            'aria-label': title,
+          },
+          h('div', { className: 'dgp-modal-title' }, title),
+          h('div', { className: 'dgp-modal-text' }, message),
+          h(
+            'div',
+            { className: 'dgp-modal-actions' },
+            h(
+              'button',
+              { type: 'button', className: 'dgp-btn', onClick: onCancel },
+              t('action.cancel'),
+            ),
+            h(
+              'button',
+              {
+                ref: confirmRef,
+                type: 'button',
+                className: 'dgp-btn ' + (danger ? 'dgp-btn-danger' : 'dgp-btn-primary'),
+                onClick: onConfirm,
+              },
+              confirmLabel,
+            ),
+          ),
+        ),
+      );
+    }
+
+    function CommitBox({
+      message,
+      onMessage,
+      amend,
+      onAmend,
+      signoff,
+      onSignoff,
+      onCommit,
+      stagedCount,
+      busy,
+      t,
+    }) {
+      const canCommit =
+        !busy &&
+        (amend || message.trim().length > 0) &&
+        (amend || stagedCount > 0);
+
+      return h(
+        'div',
+        { className: 'dgp-commit-box' },
+        h('textarea', {
+          className: 'dgp-textarea',
+          rows: 2,
+          placeholder: t('commit.placeholder'),
+          value: message,
+          disabled: busy,
+          onChange: (event) => onMessage(event.target.value),
+          onKeyDown: (event) => {
+            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter' && canCommit) {
+              event.preventDefault();
+              onCommit();
+            }
+          },
+          'aria-label': t('commit.placeholder'),
+        }),
+        h(
+          'div',
+          { className: 'dgp-commit-row' },
+          h(
+            'button',
+            {
+              type: 'button',
+              className: 'dgp-btn dgp-btn-primary',
+              onClick: onCommit,
+              disabled: !canCommit,
+            },
+            busy ? h(Spinner) : t('commit.action'),
+          ),
+          h(
+            'label',
+            { className: 'dgp-check' },
+            h('input', {
+              type: 'checkbox',
+              checked: amend,
+              disabled: busy,
+              onChange: (event) => onAmend(event.target.checked),
+            }),
+            t('commit.amend'),
+          ),
+          h(
+            'label',
+            { className: 'dgp-check' },
+            h('input', {
+              type: 'checkbox',
+              checked: signoff,
+              disabled: busy,
+              onChange: (event) => onSignoff(event.target.checked),
+            }),
+            t('commit.signoff'),
+          ),
+          h(
+            'span',
+            { className: 'dgp-commit-count' },
+            String(stagedCount) + ' ' + t('commit.staged'),
+          ),
+        ),
+      );
+    }
+
     function RepoSwitcher({ repos, current, onSelect, t }) {
       const [open, setOpen] = useState(false);
       const rootRef = useRef(null);
@@ -1554,6 +1841,22 @@ window.__ModuleLoader__.load({
       onOpenDiff,
       onCloseDiff,
       onRetryDiff,
+      commitMessage,
+      onMessage,
+      amend,
+      onAmend,
+      signoff,
+      onSignoff,
+      onCommit,
+      onStage,
+      onUnstage,
+      onDiscard,
+      onStageAll,
+      onUnstageAll,
+      onUndo,
+      canUndo,
+      busy,
+      writeError,
     }) {
       const value = data && data.value;
       const error = data && data.error;
@@ -1659,6 +1962,7 @@ window.__ModuleLoader__.load({
             ),
           ),
         ),
+        writeError ? h('div', { className: 'dgp-error-banner' }, writeError) : null,
         diffTarget
           ? h(DiffPanel, {
               target: diffTarget,
@@ -1757,24 +2061,91 @@ window.__ModuleLoader__.load({
                         ),
                       )
                     : view === 'changes'
-                      ? h(ChangesList, {
-                          changes,
-                          t,
-                          truncated: summary && summary.truncated,
-                          onSelect: onOpenDiff,
-                          showStats: true,
-                        })
-                      : h(HistoryList, {
-                          repo,
-                          commits,
-                          headSha: value.headCommit && value.headCommit.sha,
-                          t,
-                          expanded,
-                          cache,
-                          onToggle: onToggleCommit,
-                          truncated: value.commitsTruncated,
-                          onDiff: onOpenDiff,
-                        }),
+                      ? h(
+                          'div',
+                          { className: 'dgp-changes-view' },
+                          h(CommitBox, {
+                            message: commitMessage,
+                            onMessage,
+                            amend,
+                            onAmend,
+                            signoff,
+                            onSignoff,
+                            onCommit,
+                            stagedCount: summary ? summary.counts.staged : 0,
+                            busy,
+                            t,
+                          }),
+                          h(
+                            'div',
+                            { className: 'dgp-changes-toolbar' },
+                            h(
+                              'button',
+                              {
+                                type: 'button',
+                                className: 'dgp-btn',
+                                disabled: busy || changes.length === 0,
+                                onClick: onStageAll,
+                              },
+                              t('changes.stageAll'),
+                            ),
+                            h(
+                              'button',
+                              {
+                                type: 'button',
+                                className: 'dgp-btn',
+                                disabled: busy || !summary || summary.counts.staged === 0,
+                                onClick: onUnstageAll,
+                              },
+                              t('changes.unstageAll'),
+                            ),
+                            busy ? h(Spinner) : null,
+                          ),
+                          h(ChangesList, {
+                            changes,
+                            t,
+                            truncated: summary && summary.truncated,
+                            onSelect: onOpenDiff,
+                            showStats: true,
+                            showActions: true,
+                            onStage,
+                            onUnstage,
+                            onDiscard,
+                            busy,
+                          }),
+                        )
+                      : h(
+                          'div',
+                          { className: 'dgp-history-view' },
+                          canUndo
+                            ? h(
+                                'div',
+                                { className: 'dgp-changes-toolbar' },
+                                h(
+                                  'button',
+                                  {
+                                    type: 'button',
+                                    className: 'dgp-btn dgp-btn-danger',
+                                    disabled: busy,
+                                    onClick: onUndo,
+                                  },
+                                  t('history.undo'),
+                                ),
+                                busy ? h(Spinner) : null,
+                              )
+                            : null,
+                          h(HistoryList, {
+                            repo,
+                            commits,
+                            headSha: value.headCommit && value.headCommit.sha,
+                            t,
+                            expanded,
+                            cache,
+                            onToggle: onToggleCommit,
+                            truncated: value.commitsTruncated,
+                            onDiff: onOpenDiff,
+                          }),
+                        ),
                 ),
         ),
       );
@@ -1888,8 +2259,15 @@ window.__ModuleLoader__.load({
       const [refresh, setRefresh] = useState({ n: 0, fresh: false });
       const [diffTarget, setDiffTarget] = useState(null);
       const [diffState, setDiffState] = useState(null);
+      const [commitMessage, setCommitMessage] = useState('');
+      const [amend, setAmend] = useState(false);
+      const [signoff, setSignoff] = useState(false);
+      const [busy, setBusy] = useState(false);
+      const [writeError, setWriteError] = useState(null);
+      const [confirm, setConfirm] = useState(null);
       const alive = useRef(true);
       const diffController = useRef(null);
+      const writeBusy = useRef(false);
 
       useEffect(() => {
         alive.current = true;
@@ -1910,6 +2288,11 @@ window.__ModuleLoader__.load({
         diffController.current = null;
         setDiffTarget(null);
         setDiffState(null);
+        setCommitMessage('');
+        setAmend(false);
+        setSignoff(false);
+        setWriteError(null);
+        setConfirm(null);
       }, [selectedRepo]);
 
       useEffect(() => {
@@ -2139,6 +2522,107 @@ window.__ModuleLoader__.load({
         setView(next);
       };
 
+      const runWrite = async (operation) => {
+        if (!selectedRepo || writeBusy.current) return;
+        writeBusy.current = true;
+        setBusy(true);
+        setWriteError(null);
+        try {
+          await operation();
+          refreshNow();
+        } catch (error) {
+          if (error?.code !== 'aborted') setWriteError(formatError(error, t));
+        } finally {
+          writeBusy.current = false;
+          setBusy(false);
+        }
+      };
+
+      const stagePaths = (paths) =>
+        runWrite(() => callRpc(call, 'stage', { repo: selectedRepo, paths }, tab.signal));
+
+      const unstagePaths = (paths) =>
+        runWrite(() => callRpc(call, 'unstage', { repo: selectedRepo, paths }, tab.signal));
+
+      const stageAll = () =>
+        runWrite(() => callRpc(call, 'stage', { repo: selectedRepo, all: true }, tab.signal));
+
+      const unstageAll = () =>
+        runWrite(() => callRpc(call, 'unstage', { repo: selectedRepo, all: true }, tab.signal));
+
+      const stageChange = (change) => stagePaths([change.path]);
+      const unstageChange = (change) => unstagePaths([change.path]);
+
+      const commitNow = async () => {
+        const message = commitMessage.trim();
+        if (!message && !amend) {
+          setWriteError(t('commit.needMessage'));
+          return;
+        }
+        await runWrite(async () => {
+          await callRpc(
+            call,
+            'commitStaged',
+            {
+              repo: selectedRepo,
+              message,
+              amend,
+              signoff,
+            },
+            tab.signal,
+          );
+          if (alive.current) {
+            setCommitMessage('');
+            setAmend(false);
+            setSignoff(false);
+          }
+        });
+      };
+
+      const undoNow = () => {
+        setConfirm({
+          title: t('history.undoTitle'),
+          message: t('history.undoText'),
+          label: t('history.undoConfirm'),
+          danger: true,
+          run: () =>
+            runWrite(() => callRpc(call, 'undo', { repo: selectedRepo }, tab.signal)),
+        });
+      };
+
+      const discardChange = (change) => {
+        if (change.group === 'staged' || change.group === 'conflict') return;
+        const message =
+          change.group === 'untracked'
+            ? t('changes.discardUntrackedText')
+            : t('changes.discardText');
+        setConfirm({
+          title: t('changes.discardTitle'),
+          message: message + ' ' + change.path,
+          label: t('changes.discardConfirm'),
+          danger: true,
+          run: () =>
+            runWrite(() =>
+              callRpc(
+                call,
+                'discard',
+                {
+                  repo: selectedRepo,
+                  paths: [change.path],
+                  group: change.group,
+                },
+                tab.signal,
+              ),
+            ),
+        });
+      };
+
+      const acceptConfirm = () => {
+        const action = confirm;
+        setConfirm(null);
+        if (action && action.run) action.run();
+      };
+
       const chooseFolder = async () => {
         if (typeof pickDirectory !== 'function') return;
         try {
@@ -2250,7 +2734,34 @@ window.__ModuleLoader__.load({
             onOpenDiff: openDiff,
             onCloseDiff: closeDiff,
             onRetryDiff: retryDiff,
+            commitMessage,
+            onMessage: setCommitMessage,
+            amend,
+            onAmend: setAmend,
+            signoff,
+            onSignoff: setSignoff,
+            onCommit: commitNow,
+            onStage: stageChange,
+            onUnstage: unstageChange,
+            onDiscard: discardChange,
+            onStageAll: stageAll,
+            onUnstageAll: unstageAll,
+            onUndo: undoNow,
+            canUndo: Boolean(repoData[selectedRepo]?.value?.commits?.length),
+            busy,
+            writeError,
           }),
+          confirm
+            ? h(ConfirmDialog, {
+                title: confirm.title,
+                message: confirm.message,
+                confirmLabel: confirm.label,
+                danger: confirm.danger,
+                t,
+                onConfirm: acceptConfirm,
+                onCancel: () => setConfirm(null),
+              })
+            : null,
         );
       }
 
