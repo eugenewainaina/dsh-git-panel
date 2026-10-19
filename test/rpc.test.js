@@ -57,6 +57,28 @@ test('maps reader failures to the business envelope', async () => {
   });
 });
 
+test('dispatches a diff request and rejects an unknown group', async () => {
+  const dispatch = createDispatcher(
+    fakeReader({
+      diff: async (repo, request) => ({
+        repo,
+        path: request.path,
+        group: request.group,
+        patch: '+line',
+      }),
+    }),
+  );
+  const ok = await dispatch('diff', { repo: REPO, path: 'a.txt', group: 'unstaged' });
+  assert.deepEqual(ok, {
+    ok: true,
+    value: { repo: REPO, path: 'a.txt', group: 'unstaged', patch: '+line' },
+  });
+
+  const bad = await dispatch('diff', { repo: REPO, path: 'a.txt', group: 'nope' });
+  assert.equal(bad.ok, false);
+  assert.equal(bad.error.code, 'bad-request');
+});
+
 test('unknown endpoints are a bad request', async () => {
   const dispatch = createDispatcher(fakeReader());
   const result = await dispatch('wat', {});

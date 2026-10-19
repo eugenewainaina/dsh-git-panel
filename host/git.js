@@ -19,6 +19,9 @@ import { abortError, createCache, createLimiter } from './cache.js';
 const SHA = /^[0-9a-f]{4,64}$/i;
 const LOG_PRETTY = '--pretty=format:%H%x1f%P%x1f%an%x1f%at%x1f%s%x1f%D';
 const HEAD_PRETTY = '--pretty=format:%H%x1f%s%x1f%at';
+const MAX_PATCH_CHARS = 200_000;
+const MAX_UNTRACKED_BYTES = 1_000_000;
+const DIFF_GROUPS = new Set(['staged', 'unstaged', 'untracked', 'conflict', 'commit']);
 
 /**
  * @param {string} code
@@ -156,7 +159,7 @@ export function createReader(options = {}) {
    */
   function git(repo, args, signal) {
     return limiter(
-      () => execute(['-C', repo, '-c', 'core.fsmonitor=false', ...args], signal),
+      () => execute(['--literal-pathspecs', '-C', repo, '-c', 'core.fsmonitor=false', ...args], signal),
       signal,
     );
   }
@@ -418,5 +421,164 @@ export function createReader(options = {}) {
     });
   }
 
-  return { discover, summary, repo: repoDetail, commit };
+  /**
+   * @param {string} value
+   * @returns {string}
+   */
+  function relativeRepoPath(value) {
+    if (typeof value !== 'string' || value.length === 0 || value.length > 4096 || value.includes('\0')) {
+      throw panelError('bad-request', 'Invalid file path.');
+    }
+    const normalized = value.replace(/\\/g, '/').replace(/^(?:\.\/)+/, '');
+    if (
+      normalized.length === 0 ||
+      normalized === '.' ||
+      normalized.startsWith('/') ||
+      /^[A-Za-z]:\//.test(normalized) ||
+      normalized.split('/').some((segment) => segment === '' || segment === '..')
+    ) {
+      throw panelError('bad-request', 'Invalid file path.');
+    }
+    return normalized;
+  }
+
+  /**
+   * @param {string} value
+   * @returns {string}
+   */
+  function quoteGitPath(value) {
+    if (!/[\s"\\]/.test(value)) return value;
+    return '"' + value.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+  }
+
+  /**
+   * @param {string} value
+   * @returns {{ patch: string, truncated: boolean }}
+   */
+  function truncatePatch(value) {
+    if (value.length <= MAX_PATCH_CHARS) return { patch: value, truncated: false };
+    return { patch: value.slice(0, MAX_PATCH_CHARS), truncated: true };
+  }
+
+  /**
+   * Render an untracked file as an added file. Git is not asked to diff an
+   * untracked file, so the patch is synthesized here and capped.
+   * @param {string} root
+   * @param {string} rel
+   * @param {AbortSignal | undefined} signal
+   */
+  async function readUntracked(root, rel, signal) {
+    if (signal?.aborted) throw abortError();
+    let realRoot;
+    try {
+      realRoot = await fs.realpath(root);
+    } catch (error) {
+      throw classifyFs(error);
+    }
+    const absolute = path.resolve(realRoot, rel);
+    let realFile;
+    try {
+      realFile = await fs.realpath(absolute);
+    } catch (error) {
+      throw classifyFs(error);
+    }
+    if (realFile !== realRoot && !realFile.startsWith(realRoot + path.sep)) {
+      throw panelError('path-outside-repo', 'That file is outside the repository.');
+    }
+    let stat;
+    try {
+      stat = await fs.stat(realFile);
+    } catch (error) {
+      throw classifyFs(error);
+    }
+    if (!stat.isFile()) throw panelError('bad-request', 'That path is not a file.');
+    if (stat.size > MAX_UNTRACKED_BYTES) {
+      throw panelError('too-large', 'That file is too large to diff here.');
+    }
+    let buffer;
+    try {
+      buffer = await fs.readFile(realFile);
+    } catch (error) {
+      throw classifyFs(error);
+    }
+    if (buffer.includes(0)) return { patch: '', binary: true, truncated: false };
+
+    const text = buffer.toString('utf8');
+    const lines = text.split('\n');
+    if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+    const label = quoteGitPath(rel);
+    const count = lines.length;
+    let patch =
+      `diff --git a/${label} b/${label}\n` +
+      'new file mode 100644\n' +
+      '--- /dev/null\n' +
+      `+++ b/${label}\n` +
+      `@@ -0,0 +${count === 0 ? '0' : '1'},${count} @@\n`;
+    if (count > 0) {
+      patch += lines.map((line) => '+' + line).join('\n');
+      patch += text.endsWith('\n') ? '\n' : '\n\\ No newline at end of file\n';
+    }
+    return { ...truncatePatch(patch), binary: false };
+  }
+
+  /**
+   * @param {string} repo
+   * @param {{ path?: string, group?: string, sha?: string, fresh?: boolean, signal?: AbortSignal }} request
+   */
+  async function diff(repo, request = {}) {
+    const group = request.group;
+    if (!DIFF_GROUPS.has(group)) throw panelError('bad-request', 'Invalid diff group.');
+    const rel = relativeRepoPath(request.path);
+    const fresh = request.fresh === true;
+    const root = await resolveRoot(repo, request.signal, fresh);
+    if (!root) throw panelError('not-a-repo', 'That folder is not inside a git repository.');
+    if (group === 'commit' && !SHA.test(request.sha ?? '')) {
+      throw panelError('bad-request', 'Invalid commit id.');
+    }
+
+    const key = `diff:${root}:${group}:${group === 'commit' ? request.sha : ''}:${rel}`;
+    const ttl = group === 'commit' ? 60_000 : 2_000;
+    return remember(key, ttl, fresh, async () => {
+      if (group === 'untracked') {
+        return {
+          path: rel,
+          group,
+          sha: null,
+          ...(await readUntracked(root, rel, request.signal)),
+        };
+      }
+
+      let args;
+      if (group === 'commit') {
+        const parentsOutput = await git(
+          root,
+          ['rev-list', '--parents', '-n', '1', request.sha],
+          request.signal,
+        );
+        const { parents } = parseParents(parentsOutput);
+        args =
+          parents.length === 0
+            ? ['show', '--format=', '--no-color', '--no-ext-diff', '--unified=3', '-M', request.sha, '--', rel]
+            : ['diff', '--no-color', '--no-ext-diff', '--unified=3', '-M', `${request.sha}^1`, request.sha, '--', rel];
+      } else if (group === 'staged') {
+        args = ['diff', '--cached', '--no-color', '--no-ext-diff', '--unified=3', '-M', '--', rel];
+      } else {
+        args = ['diff', '--no-color', '--no-ext-diff', '--unified=3', '-M', '--', rel];
+      }
+
+      const output = await git(root, args, request.signal);
+      const binary = /^Binary files /m.test(output) || /^GIT binary patch/m.test(output);
+      const capped = truncatePatch(output);
+      return {
+        path: rel,
+        group,
+        sha: group === 'commit' ? request.sha : null,
+        patch: capped.patch,
+        binary,
+        truncated: capped.truncated,
+      };
+    });
+  }
+
+  return { discover, summary, repo: repoDetail, commit, diff };
 }

@@ -71,6 +71,36 @@ export function createDispatcher(reader) {
           }
           return ok(await reader.commit(repo, params.sha, { fresh, signal }));
         }
+        case 'diff': {
+          const repo = asAbsolutePath(params.repo, 'repo');
+          if (typeof params.path !== 'string' || params.path.length === 0 || params.path.length > 4096) {
+            const error = new Error('path must be a repository-relative file path.');
+            error.code = 'bad-request';
+            error.details = { field: 'path' };
+            throw error;
+          }
+          if (!['staged', 'unstaged', 'untracked', 'conflict', 'commit'].includes(params.group)) {
+            const error = new Error('group must be staged, unstaged, untracked, conflict, or commit.');
+            error.code = 'bad-request';
+            error.details = { field: 'group' };
+            throw error;
+          }
+          if (params.group === 'commit' && (typeof params.sha !== 'string' || !/^[0-9a-f]{4,64}$/i.test(params.sha))) {
+            const error = new Error('sha must be a hexadecimal commit id for a commit diff.');
+            error.code = 'bad-request';
+            error.details = { field: 'sha' };
+            throw error;
+          }
+          return ok(
+            await reader.diff(repo, {
+              path: params.path,
+              group: params.group,
+              sha: params.sha,
+              fresh,
+              signal,
+            }),
+          );
+        }
         default:
           return fail('bad-request', `Unknown endpoint: ${String(endpoint)}`);
       }

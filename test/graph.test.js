@@ -25,6 +25,7 @@ await import('../client.js');
 assert.equal(captured.id, '@local/dsh-git-panel');
 const plugin = captured.factory(() => React);
 const layoutGraph = plugin.__test.layoutGraph;
+const parsePatch = plugin.__test.parsePatch;
 
 const commit = (sha, ...parents) => ({ sha, parents });
 
@@ -99,6 +100,27 @@ test('rows keep the commit display fields', () => {
   assert.equal(rows[0].authorTime, 1);
   assert.deepEqual(rows[0].refs, [{ name: 'main', kind: 'head' }]);
   assert.deepEqual(rows[0].parents, [{ sha: 'b', lane: 0 }]);
+});
+
+test('parsePatch tracks add, delete, and context line numbers', () => {
+  const rows = parsePatch(
+    'diff --git a/x.txt b/x.txt\n' +
+      '--- a/x.txt\n' +
+      '+++ b/x.txt\n' +
+      '@@ -1,2 +1,2 @@\n' +
+      '-old\n' +
+      '+new\n' +
+      ' same\n',
+  );
+  const lines = rows.filter((row) => ['add', 'del', 'ctx'].includes(row.kind));
+  assert.deepEqual(
+    lines.map((row) => [row.kind, row.old, row.new, row.text]),
+    [
+      ['del', 1, null, 'old'],
+      ['add', null, 1, 'new'],
+      ['ctx', 2, 2, 'same'],
+    ],
+  );
 });
 
 test('150 linear commits stay in one lane', () => {

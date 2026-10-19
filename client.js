@@ -30,6 +30,7 @@ window.__ModuleLoader__.load({
       'action.choose': 'Choose folder',
       'action.viewAll': 'View all changes',
       'action.fullHistory': 'Full history',
+      'action.backToChanges': 'Back to changes',
       'detail.all': 'All',
       'detail.changes': 'Changes',
       'detail.history': 'History',
@@ -46,6 +47,7 @@ window.__ModuleLoader__.load({
       'changes.clean': 'Working tree clean',
       'changes.truncated': 'Showing the first 1000 changes.',
       'changes.binary': 'binary',
+      'changes.files': 'files',
       'history.empty': 'No commits yet',
       'history.noFiles': 'No file changes',
       'history.vsFirstParent': 'vs first parent',
@@ -69,6 +71,11 @@ window.__ModuleLoader__.load({
       'loading': 'Loading…',
       'commit.loading': 'Loading files…',
       'commit.error': 'Could not load this commit.',
+      'diff.open': 'View diff',
+      'diff.loading': 'Loading diff…',
+      'diff.binary': 'Binary file — no text diff.',
+      'diff.empty': 'No diff to show.',
+      'diff.truncated': 'Diff truncated at 200 KB.',
       'repo.failed': 'Could not read this repository',
       'repo.clean': 'clean',
     };
@@ -126,8 +133,10 @@ window.__ModuleLoader__.load({
 .dgp-group-head:hover{color:var(--dsw-alias-label-primary)}
 .dgp-group-title{font-weight:600;font-size:11.5px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .dgp-group-count{color:var(--dsw-alias-label-tertiary);font-size:11px}
-.dgp-change{display:flex;align-items:center;gap:6px;padding:2px 12px;min-height:26px;min-width:0}
+.dgp-change{width:100%;box-sizing:border-box;display:flex;align-items:center;gap:6px;padding:2px 12px;min-height:26px;min-width:0;border:0;background:0 0;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .dgp-change:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.dgp-change:disabled{cursor:default;opacity:.65}
+.dgp-change:disabled:hover{background:0 0}
 .dgp-status{width:14px;flex:none;text-align:center;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;font-weight:600;line-height:1}
 .dgp-st-m{color:var(--dsw-alias-state-warn-primary)}
 .dgp-st-a{color:var(--dsw-alias-state-success-primary)}
@@ -160,7 +169,8 @@ window.__ModuleLoader__.load({
 .dgp-meta-author{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .dgp-chevron{margin-left:auto;color:var(--dsw-alias-label-tertiary);flex:none;padding-top:2px}
 .dgp-files{padding:1px 0 7px 30px;display:flex;flex-direction:column;gap:1px}
-.dgp-file{display:flex;align-items:center;gap:6px;min-height:22px;min-width:0;font-size:11.5px}
+.dgp-file{width:100%;box-sizing:border-box;display:flex;align-items:center;gap:6px;min-height:22px;min-width:0;font-size:11.5px;border:0;background:0 0;color:inherit;font:inherit;text-align:left;cursor:pointer;border-radius:var(--dsw-radius-sm,4px);padding:1px 4px}
+.dgp-file:hover{background:var(--dsw-alias-interactive-bg-hover)}
 .dgp-file-status{width:14px;text-align:center;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:var(--dsw-alias-label-secondary);flex:none}
 .dgp-note{padding:7px 12px;color:var(--dsw-alias-label-tertiary);font-size:11.5px}
 .dgp-empty{padding:28px 18px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--dsw-alias-label-secondary)}
@@ -187,6 +197,22 @@ window.__ModuleLoader__.load({
 .dgp-menu-path{color:var(--dsw-alias-label-tertiary);font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dgp-visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .dgp-title{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.dgp-changes-summary{display:flex;align-items:center;gap:8px;padding:4px 12px 6px;color:var(--dsw-alias-label-tertiary);font-size:11.5px}
+.dgp-clean-inline{display:flex;align-items:center;gap:6px;padding:7px 12px;color:var(--dsw-alias-state-success-primary);font-size:11.5px}
+.dgp-diff-head{flex:none;display:flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;border-bottom:.5px solid var(--dsw-alias-border-l3);min-width:0}
+.dgp-diff-title{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.dgp-diff-body{padding:0 0 16px;overflow:auto}
+.dgp-diff{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.45;min-width:max-content;padding-bottom:4px}
+.dgp-diff-line{display:flex;align-items:flex-start;min-height:16px;white-space:pre}
+.dgp-diff-num{width:30px;flex:none;text-align:right;padding-right:5px;color:var(--dsw-alias-label-tertiary);user-select:none;font-variant-numeric:tabular-nums}
+.dgp-diff-sign{width:14px;flex:none;text-align:center;user-select:none;color:var(--dsw-alias-label-tertiary)}
+.dgp-diff-code{flex:1;min-width:0;white-space:pre;padding-right:12px}
+.dgp-diff-add{background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 11%,transparent)}
+.dgp-diff-add .dgp-diff-sign{color:var(--dsw-alias-state-success-primary)}
+.dgp-diff-del{background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 11%,transparent)}
+.dgp-diff-del .dgp-diff-sign{color:var(--dsw-alias-state-error-primary)}
+.dgp-diff-hunk{padding:3px 8px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-brand-primary);white-space:pre}
+.dgp-diff-meta{padding:1px 8px;color:var(--dsw-alias-label-tertiary);white-space:pre;overflow:hidden;text-overflow:ellipsis}
 .dgp-title-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 :focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}
 @keyframes dgp-spin{to{transform:rotate(360deg)}}
@@ -339,6 +365,63 @@ window.__ModuleLoader__.load({
       let maxLanes = 0;
       for (const row of rows) maxLanes = Math.max(maxLanes, row.before.length, row.after.length);
       return { rows, maxLanes };
+    }
+
+    function parsePatch(patch) {
+      const rows = [];
+      let oldLine = 0;
+      let newLine = 0;
+      let inHunk = false;
+
+      const rawLines = String(patch || '').split('\n');
+      if (rawLines.length > 0 && rawLines[rawLines.length - 1] === '') rawLines.pop();
+      for (const raw of rawLines) {
+        if (raw.startsWith('diff --git ')) {
+          inHunk = false;
+          rows.push({ kind: 'meta', text: raw });
+          continue;
+        }
+        if (raw.startsWith('@@')) {
+          const match = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(raw);
+          if (match) {
+            oldLine = Number(match[1]);
+            newLine = Number(match[2]);
+            inHunk = true;
+            rows.push({ kind: 'hunk', text: raw });
+            continue;
+          }
+        }
+        if (!inHunk) {
+          if (raw === '') continue;
+          rows.push({ kind: 'meta', text: raw });
+          continue;
+        }
+        if (raw.startsWith('\\')) {
+          rows.push({ kind: 'meta', text: raw });
+          continue;
+        }
+        if (raw.startsWith('+')) {
+          rows.push({ kind: 'add', text: raw.slice(1), old: null, new: newLine });
+          newLine += 1;
+          continue;
+        }
+        if (raw.startsWith('-')) {
+          rows.push({ kind: 'del', text: raw.slice(1), old: oldLine, new: null });
+          oldLine += 1;
+          continue;
+        }
+        if (raw.startsWith(' ')) {
+          rows.push({ kind: 'ctx', text: raw.slice(1), old: oldLine, new: newLine });
+          oldLine += 1;
+          newLine += 1;
+          continue;
+        }
+        rows.push({ kind: 'ctx', text: raw, old: oldLine, new: newLine });
+        oldLine += 1;
+        newLine += 1;
+      }
+
+      return rows;
     }
 
     function useDocumentHidden() {
@@ -551,6 +634,27 @@ window.__ModuleLoader__.load({
       );
     }
 
+    function IconCheck({ size = 14 }) {
+      return h(
+        'svg',
+        {
+          className: 'dgp-icon',
+          viewBox: '0 0 24 24',
+          width: size,
+          height: size,
+          fill: 'none',
+          'aria-hidden': true,
+        },
+        h('path', {
+          d: 'm5 12.5 4.2 4.2L19 7',
+          stroke: 'currentColor',
+          strokeWidth: 1.9,
+          strokeLinecap: 'round',
+          strokeLinejoin: 'round',
+        }),
+      );
+    }
+
     function GuideArtwork() {
       return h(
         'svg',
@@ -671,7 +775,7 @@ window.__ModuleLoader__.load({
       );
     }
 
-    function ChangeRow({ change, t }) {
+    function ChangeRow({ change, t, onSelect }) {
       const isRename = (change.status === 'R' || change.status === 'C') && change.oldPath;
       const stats = [];
       if (change.binary) {
@@ -698,9 +802,18 @@ window.__ModuleLoader__.load({
         pathNode = h(PathLabel, { value: change.path });
       }
 
+      const disabled = change.group === 'untracked' && change.path.endsWith('/');
       return h(
-        'div',
-        { className: 'dgp-change' },
+        'button',
+        {
+          type: 'button',
+          className: 'dgp-change',
+          onClick: () => {
+            if (onSelect) onSelect(change);
+          },
+          disabled,
+          title: disabled ? undefined : t('diff.open'),
+        },
         h(
           'span',
           { className: 'dgp-status ' + statusClass(change.status), title: change.status },
@@ -711,17 +824,46 @@ window.__ModuleLoader__.load({
       );
     }
 
-    function ChangesList({ changes, t, truncated }) {
+    function ChangesList({ changes, t, truncated, onSelect, showStats }) {
       const [collapsed, setCollapsed] = useState({});
       const groups = useMemo(() => groupedChanges(changes), [changes]);
+      const totals = useMemo(() => {
+        let additions = 0;
+        let deletions = 0;
+        for (const change of changes || []) {
+          additions += change.additions || 0;
+          deletions += change.deletions || 0;
+        }
+        return { additions, deletions };
+      }, [changes]);
 
       if (!changes || changes.length === 0) {
-        return h('div', { className: 'dgp-note' }, t('changes.clean'));
+        return h(
+          'div',
+          { className: 'dgp-clean-inline' },
+          h(IconCheck, { size: 14 }),
+          t('changes.clean'),
+        );
       }
 
       return h(
         'div',
         null,
+        showStats
+          ? h(
+              'div',
+              { className: 'dgp-changes-summary' },
+              String(changes.length) + ' ' + t('changes.files'),
+              totals.additions || totals.deletions
+                ? h(
+                    'span',
+                    { className: 'dgp-stats' },
+                    h('span', { className: 'dgp-add' }, '+' + totals.additions),
+                    h('span', { className: 'dgp-del' }, '\u2212' + totals.deletions),
+                  )
+                : null,
+            )
+          : null,
         groups.map((group) =>
           h(
             'div',
@@ -746,6 +888,7 @@ window.__ModuleLoader__.load({
                     key: group.key + ':' + change.path + ':' + (change.oldPath || '') + ':' + index,
                     change,
                     t,
+                    onSelect,
                   }),
                 ),
           ),
@@ -869,7 +1012,7 @@ window.__ModuleLoader__.load({
       );
     }
 
-    function CommitFiles({ repo, sha, state, isMerge, t }) {
+    function CommitFiles({ repo, sha, state, isMerge, t, onDiff }) {
       if (!state || state.loading) {
         return h('div', { className: 'dgp-note' }, h(Spinner), ' ', t('commit.loading'));
       }
@@ -886,8 +1029,16 @@ window.__ModuleLoader__.load({
         isMerge ? h('div', { className: 'dgp-note' }, t('history.vsFirstParent')) : null,
         files.map((file) =>
           h(
-            'div',
-            { key: repo + ':' + sha + ':' + file.path, className: 'dgp-file' },
+            'button',
+            {
+              key: repo + ':' + sha + ':' + file.path,
+              type: 'button',
+              className: 'dgp-file',
+              onClick: () => {
+                if (onDiff) onDiff(file);
+              },
+              title: t('diff.open'),
+            },
             h(
               'span',
               { className: 'dgp-file-status ' + statusClass(file.status) },
@@ -919,7 +1070,7 @@ window.__ModuleLoader__.load({
       );
     }
 
-    function CommitRow({ repo, row, maxLanes, headSha, t, expanded, cache, onToggle }) {
+    function CommitRow({ repo, row, maxLanes, headSha, t, expanded, cache, onToggle, onDiff }) {
       const key = repo + ':' + row.sha;
       const open = expanded[key] === true;
       const state = cache[key];
@@ -967,12 +1118,15 @@ window.__ModuleLoader__.load({
               state,
               isMerge: row.parents.length > 1,
               t,
+              onDiff: (file) => {
+                if (onDiff) onDiff({ ...file, sha: row.sha, group: 'commit' });
+              },
             })
           : null,
       );
     }
 
-    function HistoryList({ repo, commits, headSha, t, expanded, cache, onToggle, limit, truncated }) {
+    function HistoryList({ repo, commits, headSha, t, expanded, cache, onToggle, limit, truncated, onDiff }) {
       const layout = useMemo(() => layoutGraph(commits || []), [commits]);
       if (!commits || commits.length === 0) {
         return h('div', { className: 'dgp-note' }, t('history.empty'));
@@ -992,6 +1146,7 @@ window.__ModuleLoader__.load({
             expanded,
             cache,
             onToggle: (sha) => onToggle(row.sha),
+            onDiff,
           }),
         ),
         truncated ? h('div', { className: 'dgp-note' }, t('history.showing')) : null,
@@ -1072,6 +1227,99 @@ window.__ModuleLoader__.load({
               h('span', null, relativeTime(value.headCommit.authorTime, t)),
             )
           : null,
+      );
+    }
+
+    function DiffPanel({ target, state, t, onBack, onRetry }) {
+      const data = state && state.data;
+      const rows = useMemo(
+        () => (data && data.patch ? parsePatch(data.patch) : []),
+        [data],
+      );
+      const visible = rows.slice(0, 4000);
+      const title = target.oldPath ? target.oldPath + ' \u2192 ' + target.path : target.path;
+
+      return h(
+        React.Fragment,
+        null,
+        h(
+          'div',
+          { className: 'dgp-diff-head' },
+          h(IconButton, { label: t('action.backToChanges'), onClick: onBack }, h(IconBack)),
+          h('span', { className: 'dgp-diff-title dgp-grow', title }, title),
+          target.status
+            ? h('span', { className: 'dgp-status ' + statusClass(target.status) }, target.status)
+            : null,
+          target.additions !== undefined || target.deletions !== undefined
+            ? h(
+                'span',
+                { className: 'dgp-stats' },
+                h('span', { className: 'dgp-add' }, '+' + (target.additions || 0)),
+                h('span', { className: 'dgp-del' }, '\u2212' + (target.deletions || 0)),
+              )
+            : null,
+          h(
+            IconButton,
+            { label: t('action.retry'), onClick: onRetry },
+            state && state.loading ? h(Spinner) : h(IconRefresh),
+          ),
+        ),
+        h(
+          'div',
+          { className: 'dgp-body dgp-diff-body' },
+          !state || state.loading
+            ? h('div', { className: 'dgp-note' }, h(Spinner), ' ', t('diff.loading'))
+            : state.error
+              ? h(ErrorState, {
+                  message: state.error,
+                  t,
+                  onRetry,
+                  onBack,
+                })
+              : data.binary
+                ? h('div', { className: 'dgp-note' }, t('diff.binary'))
+                : !data.patch
+                  ? h('div', { className: 'dgp-note' }, t('diff.empty'))
+                  : h(
+                      'div',
+                      { className: 'dgp-diff' },
+                      visible.map((row, index) => {
+                        if (row.kind === 'hunk') {
+                          return h(
+                            'div',
+                            { key: index, className: 'dgp-diff-line dgp-diff-hunk' },
+                            row.text,
+                          );
+                        }
+                        if (row.kind === 'meta') {
+                          return h(
+                            'div',
+                            { key: index, className: 'dgp-diff-line dgp-diff-meta' },
+                            row.text,
+                          );
+                        }
+                        const sign = row.kind === 'add' ? '+' : row.kind === 'del' ? '-' : ' ';
+                        return h(
+                          'div',
+                          {
+                            key: index,
+                            className: 'dgp-diff-line dgp-diff-' + row.kind,
+                          },
+                          h('span', { className: 'dgp-diff-num' }, row.old === null ? '' : row.old),
+                          h('span', { className: 'dgp-diff-num' }, row.new === null ? '' : row.new),
+                          h('span', { className: 'dgp-diff-sign' }, sign),
+                          h(
+                            'span',
+                            { className: 'dgp-diff-code' },
+                            row.text === '' ? '\u00a0' : row.text,
+                          ),
+                        );
+                      }),
+                      data.truncated || rows.length > 4000
+                        ? h('div', { className: 'dgp-note' }, t('diff.truncated'))
+                        : null,
+                    ),
+        ),
       );
     }
 
@@ -1301,6 +1549,11 @@ window.__ModuleLoader__.load({
       expanded,
       cache,
       onToggleCommit,
+      diffTarget,
+      diffState,
+      onOpenDiff,
+      onCloseDiff,
+      onRetryDiff,
     }) {
       const value = data && data.value;
       const error = data && data.error;
@@ -1364,7 +1617,9 @@ window.__ModuleLoader__.load({
               ),
             ),
           ),
-          h(
+          diffTarget
+            ? null
+            : h(
             'div',
             { className: 'dgp-tabs', role: 'tablist' },
             h(
@@ -1404,7 +1659,15 @@ window.__ModuleLoader__.load({
             ),
           ),
         ),
-        h(
+        diffTarget
+          ? h(DiffPanel, {
+              target: diffTarget,
+              state: diffState,
+              t,
+              onBack: onCloseDiff,
+              onRetry: onRetryDiff,
+            })
+          : h(
           'div',
           { className: 'dgp-body' },
           !value && !error
@@ -1453,8 +1716,14 @@ window.__ModuleLoader__.load({
                                 changes: changes.slice(0, 5),
                                 t,
                                 truncated: false,
+                                onSelect: onOpenDiff,
                               })
-                            : h('div', { className: 'dgp-note' }, t('changes.clean')),
+                            : h(
+                                'div',
+                                { className: 'dgp-clean-inline' },
+                                h(IconCheck, { size: 14 }),
+                                t('changes.clean'),
+                              ),
                         ),
                         h(
                           'div',
@@ -1483,6 +1752,7 @@ window.__ModuleLoader__.load({
                             onToggle: onToggleCommit,
                             limit: 8,
                             truncated: value.commitsTruncated,
+                            onDiff: onOpenDiff,
                           }),
                         ),
                       )
@@ -1491,6 +1761,8 @@ window.__ModuleLoader__.load({
                           changes,
                           t,
                           truncated: summary && summary.truncated,
+                          onSelect: onOpenDiff,
+                          showStats: true,
                         })
                       : h(HistoryList, {
                           repo,
@@ -1501,6 +1773,7 @@ window.__ModuleLoader__.load({
                           cache,
                           onToggle: onToggleCommit,
                           truncated: value.commitsTruncated,
+                          onDiff: onOpenDiff,
                         }),
                 ),
         ),
@@ -1613,7 +1886,10 @@ window.__ModuleLoader__.load({
       const [discovered, setDiscovered] = useState(false);
       const [discoverLoading, setDiscoverLoading] = useState(false);
       const [refresh, setRefresh] = useState({ n: 0, fresh: false });
+      const [diffTarget, setDiffTarget] = useState(null);
+      const [diffState, setDiffState] = useState(null);
       const alive = useRef(true);
+      const diffController = useRef(null);
 
       useEffect(() => {
         alive.current = true;
@@ -1621,6 +1897,20 @@ window.__ModuleLoader__.load({
           alive.current = false;
         };
       }, []);
+
+      useEffect(
+        () => () => {
+          if (diffController.current) diffController.current.abort();
+        },
+        [],
+      );
+
+      useEffect(() => {
+        if (diffController.current) diffController.current.abort();
+        diffController.current = null;
+        setDiffTarget(null);
+        setDiffState(null);
+      }, [selectedRepo]);
 
       useEffect(() => {
         if (!sessionId || typeof localStorage === 'undefined') return;
@@ -1803,11 +2093,58 @@ window.__ModuleLoader__.load({
 
       const refreshNow = () => setRefresh((current) => ({ n: current.n + 1, fresh: true }));
 
+      const closeDiff = () => {
+        if (diffController.current) {
+          diffController.current.abort();
+          diffController.current = null;
+        }
+        setDiffTarget(null);
+        setDiffState(null);
+      };
+
+      const openDiff = (target) => {
+        if (!selectedRepo || !target) return;
+        if (diffController.current) diffController.current.abort();
+        const controller = new AbortController();
+        diffController.current = controller;
+        setDiffTarget(target);
+        setDiffState({ loading: true });
+        callRpc(
+          call,
+          'diff',
+          {
+            repo: selectedRepo,
+            path: target.path,
+            group: target.group,
+            sha: target.sha,
+          },
+          controller.signal,
+        )
+          .then((data) => {
+            if (!controller.signal.aborted && alive.current) setDiffState({ data });
+          })
+          .catch((error) => {
+            if (!controller.signal.aborted && alive.current && error?.code !== 'aborted') {
+              setDiffState({ error: formatError(error, t) });
+            }
+          });
+      };
+
+      const retryDiff = () => {
+        if (diffTarget) openDiff(diffTarget);
+      };
+
+      const changeView = (next) => {
+        closeDiff();
+        setView(next);
+      };
+
       const chooseFolder = async () => {
         if (typeof pickDirectory !== 'function') return;
         try {
           const picked = await pickDirectory();
           if (!picked || !alive.current) return;
+          closeDiff();
           setRoot(picked);
           setSelectedRepo(null);
           setRepos([]);
@@ -1822,6 +2159,7 @@ window.__ModuleLoader__.load({
 
       const useSessionFolder = () => {
         if (!cwd) return;
+        closeDiff();
         setRoot(cwd);
         setSelectedRepo(null);
         setRepos([]);
@@ -1832,11 +2170,13 @@ window.__ModuleLoader__.load({
       };
 
       const selectRepo = (path) => {
+        closeDiff();
         setSelectedRepo(path);
         setExpanded({});
       };
 
       const goBack = () => {
+        closeDiff();
         setSelectedRepo(null);
         setExpanded({});
       };
@@ -1895,7 +2235,7 @@ window.__ModuleLoader__.load({
             data: repoData[selectedRepo],
             t,
             view,
-            onView: setView,
+            onView: changeView,
             onBack: goBack,
             canBack: repos.length > 1,
             repos,
@@ -1905,6 +2245,11 @@ window.__ModuleLoader__.load({
             expanded,
             cache: commitCache,
             onToggleCommit: toggleCommit,
+            diffTarget,
+            diffState,
+            onOpenDiff: openDiff,
+            onCloseDiff: closeDiff,
+            onRetryDiff: retryDiff,
           }),
         );
       }
@@ -2068,7 +2413,7 @@ window.__ModuleLoader__.load({
     return {
       inject: ['slots', 'locale', 'sidebarRightTabs', 'connection', 'uiWorkspace'],
       apply,
-      __test: { layoutGraph },
+      __test: { layoutGraph, parsePatch },
     };
   },
 });

@@ -64,6 +64,9 @@ test('reader handles a working repo, history, commits, and conflicts', async () 
 
     await fs.appendFile(path.join(repo, 'a.txt'), 'changed\n');
     await write(repo, 'notes.txt', 'untracked\n');
+    await write(repo, 'staged.txt', 'staged\n');
+    git(repo, ['add', 'staged.txt']);
+    await fs.writeFile(path.join(repo, 'blob.bin'), Buffer.from([0, 1, 2, 3]));
 
     await initRepo(conflict);
     await write(conflict, 'x.txt', 'base\n');
@@ -108,10 +111,10 @@ test('reader handles a working repo, history, commits, and conflicts', async () 
 
     assert.equal(detail.summary.branch, 'main');
     assert.equal(detail.summary.detached, false);
-    assert.equal(detail.summary.counts.staged, 0);
+    assert.equal(detail.summary.counts.staged, 1);
     assert.equal(detail.summary.counts.unstaged, 1);
-    assert.equal(detail.summary.counts.untracked, 1);
-    assert.equal(detail.summary.changedFiles, 2);
+    assert.equal(detail.summary.counts.untracked, 2);
+    assert.equal(detail.summary.changedFiles, 4);
     assert.equal(detail.headCommit.sha, headSha);
     assert.equal(detail.headCommit.subject, 'rename');
     assert.ok(detail.commits.length >= 5);
@@ -127,6 +130,32 @@ test('reader handles a working repo, history, commits, and conflicts', async () 
 
     const mergeFiles = await reader.commit(repo, mergeSha);
     assert.ok(mergeFiles.files.some((file) => file.path === 'c.txt' && file.status === 'A'));
+
+    const unstagedDiff = await reader.diff(repo, { path: 'a.txt', group: 'unstaged' });
+    assert.match(unstagedDiff.patch, /\+changed/);
+    assert.equal(unstagedDiff.binary, false);
+
+    const stagedDiff = await reader.diff(repo, { path: 'staged.txt', group: 'staged' });
+    assert.match(stagedDiff.patch, /\+staged/);
+
+    const untrackedDiff = await reader.diff(repo, { path: 'notes.txt', group: 'untracked' });
+    assert.match(untrackedDiff.patch, /\+untracked/);
+
+    const binaryDiff = await reader.diff(repo, { path: 'blob.bin', group: 'untracked' });
+    assert.equal(binaryDiff.binary, true);
+    assert.equal(binaryDiff.patch, '');
+
+    const commitDiff = await reader.diff(repo, {
+      path: 'renamed.txt',
+      group: 'commit',
+      sha: headSha,
+    });
+    assert.ok(commitDiff.patch.length > 0);
+
+    await assert.rejects(
+      () => reader.diff(repo, { path: '../escape.txt', group: 'untracked' }),
+      (error) => error.code === 'bad-request',
+    );
 
     const conflicted = await reader.repo(conflict);
     assert.equal(conflicted.summary.counts.conflicts, 1);

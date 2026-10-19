@@ -12,6 +12,8 @@ working tree, branches, and commit graph.
   ref chips and per-commit file lists.
 - **Live** — detail polls every 3s, the folder overview every 10s; both pause
   when the tab is hidden.
+- **Diffs** — click a changed file or a commit file to see the unified diff
+  with line numbers and colored hunks.
 - **Read-only** — no stage, commit, discard, checkout, fetch, or push, ever.
 
 ## Requirements
@@ -109,18 +111,17 @@ node --check client.js
 node --test test/*.test.js
 ```
 
-24 tests cover the parsers against synthetic and real temporary repositories
+27 tests cover the parsers against synthetic and real temporary repositories
 (including merges, renames, conflicts, worktrees, and unborn branches), the
-repository scanner, the RPC dispatcher, the HTTP envelope bridge, and the commit
-lane layout.
+repository scanner, the RPC dispatcher, the HTTP envelope bridge, the commit
+lane layout, and the unified-diff parser.
 
 `client.js` is plain JavaScript with no JSX and no bundler step; React is
 supplied by the host's module table. Host modules are plain ESM.
 
 ## Limitations
 
-- Read-only: no write operations and no diff text. Clicking a commit expands its
-  file list; v1 does not render a unified diff.
+- Read-only: no write operations.
 - Web GUI only: the route bridge is reached over the Web HTTP carrier.
 - Repository discovery is one level deep; nested repositories are not scanned.
 - History is capped at 150 commits, status at 1000 entries, discovery at 100

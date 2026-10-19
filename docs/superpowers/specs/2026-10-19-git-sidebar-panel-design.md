@@ -16,7 +16,7 @@ The goal is a guide card named **Git** in the right sidebar's Start page that op
 ## 2. Non-goals
 
 - No write operations: no stage, unstage, commit, discard, checkout, pull, push, or fetch.
-- No inline diff text in v1 (a unified diff view is a follow-up).
+- Write actions remain out of scope. The read-only unified diff is implemented.
 - No opening a changed file or commit file in the editor/preview.
 - No recursive repo scan below one level, no multi-repo merged change feed, no remote-branch lanes, no commit pagination.
 - No Git panel outside a session (the right sidebar requires one).
@@ -30,7 +30,7 @@ The goal is a guide card named **Git** in the right sidebar's Start page that op
 | Aggregate model | Repo overview → drill into one repo; switch repos from the header |
 | Detail layout | Sub-tabs **All / Changes / History**, default **All** |
 | History | Lane-drawn commit graph, all local branches + tags + HEAD, 150 commits |
-| Change depth | Status letters + line counts; commit file lists; no diff text |
+| Change depth | Status letters + line counts; commit file lists; unified diff on click |
 | Read-only | Yes |
 | Live updates | Client polling (detail 3s, overview 10s) + host cache |
 | Client↔Host | Authenticated `/git-panel` route carrying the Connection RPC envelope; client `ctx.connection.rpc.call` |
@@ -93,8 +93,8 @@ The goal is a guide card named **Git** in the right sidebar's Start page that op
 Pinned header: back arrow (only when the overview has more than one repo), repo name, branch or detached state, ahead/behind, dirty count, repo switcher (`⌄` lists sibling repos; hidden when the scope holds a single repo), folder picker, refresh.
 
 - **All** — one scroll: summary card (branch, upstream, ahead/behind, counts, last commit) → first 5 change entries → latest 8 commits with graph → "View all changes" / "Full history" links that switch sub-tabs.
-- **Changes** — full-height list. Group order: **Conflicts**, **Staged**, **Unstaged**, **Untracked**; empty groups are hidden; headers are collapsible and show counts. Rows carry status letter, dimmed directory + primary filename, `+N −M` when known, rename as `old → new`, and "binary" instead of counts. An untracked directory is one row with a trailing slash. A clean tree shows "Working tree clean."
-- **History** — full-height graph. Each row: lane lines and node, subject (truncated), ref chips (HEAD/local/remote/tag), author and relative time. Clicking a row expands its changed-file list, loaded lazily and cached. A merge commit diffs against its first parent, labelled as such. Cap 150 with a visible "Showing the latest 150 commits" note; the tab badge shows `150+` when truncated.
+- **Changes** — full-height list. Group order: **Conflicts**, **Staged**, **Unstaged**, **Untracked**; empty groups are hidden; headers are collapsible and show counts. Rows carry status letter, dimmed directory + primary filename, `+N −M` when known, rename as `old → new`, and "binary" instead of counts. An untracked directory is one row with a trailing slash. A clean tree shows "Working tree clean." Clicking a row opens its unified diff; an untracked directory row is not clickable.
+- **History** — full-height graph. Each row: lane lines and node, subject (truncated), ref chips (HEAD/local/remote/tag), author and relative time. Clicking a row expands its changed-file list, loaded lazily and cached. A merge commit diffs against its first parent, labelled as such. Clicking a changed file in the expanded list opens its unified diff. Cap 150 with a visible "Showing the latest 150 commits" note; the tab badge shows `150+` when truncated.
 
 ### 4.5 States
 
@@ -152,6 +152,7 @@ The body receives a small face through a wrapper component defined in `apply` �
 | `summary` | `{ repo: string, fresh?: boolean }` | `SummaryValue` |
 | `repo` | `{ repo: string, fresh?: boolean }` | `RepoValue` |
 | `commit` | `{ repo: string, sha: string }` | `CommitValue` |
+| `diff` | `{ repo: string, path: string, group: 'staged' \| 'unstaged' \| 'untracked' \| 'conflict' \| 'commit', sha?: string, fresh?: boolean }` | `DiffValue` |
 
 `fresh: true` bypasses the host TTL caches and is sent only by manual refresh. Paths are absolute; `sha` must match `/^[0-9a-f]{4,64}$/i` before it reaches git. The handler validates every payload and returns `bad-request` rather than throwing. `summary`, `repo`, and `commit` resolve the containing repository root with a cached `rev-parse --show-toplevel`, so a subdirectory path works; the value's `repo` is that resolved root.
 
@@ -226,6 +227,15 @@ interface CommitValue {
   sha: string;
   files: CommitFile[];
 }
+
+interface DiffValue {
+  path: string;
+  group: 'staged' | 'unstaged' | 'untracked' | 'conflict' | 'commit';
+  sha: string | null;
+  patch: string;               // unified diff, capped at 200 KB
+  binary: boolean;
+  truncated: boolean;
+}
 ```
 
 Error codes: `bad-request`, `not-found`, `not-a-directory`, `not-a-repo`, `git-missing`, `git-failed`, `git-timeout`, `unsafe-repo`, `too-large`, `internal`.
@@ -243,6 +253,9 @@ All commands use `execFile` (no shell), fixed argv, `-C <repo>`, `-c core.fsmoni
 | History | `git log HEAD --branches --tags -n 151 --topo-order --decorate=full -z --pretty=format:%H%x1f%P%x1f%an%x1f%at%x1f%s%x1f%D` |
 | Head commit | `git log -1 --pretty=format:%H%x1f%s%x1f%at HEAD` |
 | Commit files | `git diff-tree -r -M --no-commit-id --name-status -z <sha>^1 <sha>` and `git diff-tree -r -M --no-commit-id --numstat -z <sha>^1 <sha>`; root commits use `--root <sha>`; merges compare to the first parent. `-M` is required: without it git reports a rename as delete + add. |
+| Worktree diff | `git diff --no-color --no-ext-diff --unified=3 -M -- <path>`; staged adds `--cached`; conflict uses the same worktree form. |
+| Commit diff | `git diff --no-color --no-ext-diff --unified=3 -M <sha>^1 <sha> -- <path>`; root commits use `git show --format= … <sha> -- <path>`. |
+| Untracked diff | Synthesized in the host from the file bytes as a `new file` patch; binary files return `binary: true`. |
 
 Every command is `execFile('git', ['-C', repo, '-c', 'core.fsmonitor=false', ...args])` with `GIT_OPTIONAL_LOCKS=0`, `GIT_TERMINAL_PROMPT=0`, and `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`, `GIT_COMMON_DIR` removed from the inherited environment. Timeout 10s, output cap 8 MB, git concurrency 3.
 
@@ -324,9 +337,10 @@ CSS is one stylesheet inserted once in `apply` through a `style[data-plugin-css]
 ## 12. Testing
 
 - `parse.test.js`: porcelain-v2 fixtures (ordinary, rename, conflict, untracked, detached, unborn, ahead/behind), numstat (binary, rename), log (nasty subjects, decorations), diff-tree.
+- Diff coverage in the fixture suite: unstaged, staged, untracked, binary, commit, and path-traversal rejection; the client parser test tracks add/delete/context line numbers.
 - `discover.test.js`: temp dirs with `.git` directory and worktree `.git` file; depth-1 only; hidden and `node_modules` skipped; symlinks skipped; cap.
 - `graph.test.js`: lane layout for linear, fork, merge, octopus, detached, and a 150-commit run; stable parent lanes, no collisions.
-- `git-fixture.test.js`: creates real temp repos with two branches and a merge, a rename (verified through `-M`), a conflict, an unborn repo, and a worktree `.git` file; asserts the reader end-to-end and that `git status` before/after is identical.
+- `git-fixture.test.js`: creates real temp repos with two branches and a merge, a rename (verified through `-M`), a conflict, an unborn repo, a worktree `.git` file, staged/untracked/binary files; asserts the reader and diff reader end-to-end and that `git status` before/after is identical.
 - `rpc.test.js`: dispatcher validation — unknown endpoint, missing/invalid path, non-hex sha, `fresh` handling, and the business-failure envelope; the handler is called with a fake reader.
 - `graph.test.js`: lane layout for linear, fork, merge, octopus, detached, multiple roots, and a 150-commit run; stable parent lanes, no collisions.
 
@@ -337,7 +351,7 @@ All tests run with `node --test test/*.test.js` (24 tests).
 1. Test suite green.
 2. Bundle installs; Plugins row shows title, description, and icon with no display diagnostics.
 3. The git reader is exercised by the fixture suite against real repositories; the RPC channel itself is platform-owned, so its envelope is trusted rather than re-tested.
-4. Live session: Start guide shows **Git**; overview lists four repos; drill into `animus` (main, ↑8, its eight modified files); Changes groups and History graph render; a commit expands.
+4. Live session: Start guide shows **Git**; overview lists four repos; drill into `animus` (main, ↑8, its eight modified files); Changes groups and History graph render; a commit expands; clicking a changed file or commit file renders a unified diff with line numbers.
 5. Live update: edit a file in a watched repo; counts change within ~3s without manual refresh.
 6. Reload: folder/repo/view persist.
 7. Edge states: empty folder, non-repo, empty repo, detached HEAD, light/dark, 360px.
@@ -367,7 +381,6 @@ Browser automation is not assumed; steps 4–7 are checked on the user's live pa
 
 ## 16. Future work
 
-- Unified diff view (new `diff` method) opened from a changed file or a commit file.
 - File opening in the Document tab where the path is inside the session workspace.
 - Stage / unstage / commit with approval plumbing.
 - Push-based streams instead of polling, via a Remote service or SSE.
