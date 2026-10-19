@@ -1,6 +1,6 @@
 # Git Sidebar Panel — Design Spec
 
-- **Status:** Implemented 2026-10-19; write core added; live UI verification pending
+- **Status:** Write core, inspection depth, and sync/branches implemented; live UI verification pending
 - **Date:** 2026-10-19
 - **Scope:** new persistent Harness plugin (Host + Client halves)
 - **Working name:** `@local/dsh-git-panel`
