@@ -161,6 +161,30 @@ export function createDispatcher(reader) {
             }),
           );
         }
+        case 'branches': {
+          const repo = asAbsolutePath(params.repo, 'repo');
+          return ok(await reader.branches(repo, { fresh: params.fresh === true, signal }));
+        }
+        case 'switchBranch': {
+          const repo = asAbsolutePath(params.repo, 'repo');
+          if (typeof params.name !== 'string' || params.name.length === 0 || params.name.length > 255) {
+            const error = new Error('name must be a branch name.');
+            error.code = 'bad-request';
+            error.details = { field: 'name' };
+            throw error;
+          }
+          return ok(
+            await reader.switchBranch(repo, {
+              name: params.name,
+              create: params.create === true,
+              signal,
+            }),
+          );
+        }
+        case 'tags': {
+          const repo = asAbsolutePath(params.repo, 'repo');
+          return ok(await reader.tags(repo, { fresh: params.fresh === true, signal }));
+        }
         case 'fileLog': {
           const repo = asAbsolutePath(params.repo, 'repo');
           if (typeof params.path !== 'string' || params.path.length === 0 || params.path.length > 4096) {

@@ -34,6 +34,12 @@ window.__ModuleLoader__.load({
       'action.cancel': 'Cancel',
       'action.blame': 'Blame',
       'action.fileHistory': 'File history',
+      'branch.switch': 'Switch branch',
+      'branch.new': 'New branch',
+      'branch.newPlaceholder': 'New branch name',
+      'branch.create': 'Create',
+      'branch.loading': 'Loading branches…',
+      'branch.tags': 'Tags',
       'detail.all': 'All',
       'detail.changes': 'Changes',
       'detail.history': 'History',
@@ -284,6 +290,17 @@ window.__ModuleLoader__.load({
 .dgp-blame-sha{width:58px;flex:none;color:var(--dsw-alias-brand-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dgp-blame-author{width:96px;flex:none;color:var(--dsw-alias-label-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:6px}
 .dgp-blame-text{flex:1;min-width:0;white-space:pre;padding-right:12px}
+.dgp-branch-wrap{position:relative;display:inline-flex;min-width:0}
+.dgp-branch-btn{display:inline-flex;align-items:center;gap:4px;min-width:0;border:0;background:0 0;color:inherit;font:inherit;padding:2px 3px;border-radius:var(--dsw-radius-sm,4px);cursor:pointer}
+.dgp-branch-btn:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.dgp-branch-menu{left:0;right:auto;min-width:230px}
+.dgp-menu-label{padding:4px 7px 2px;color:var(--dsw-alias-label-tertiary);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em}
+.dgp-menu-empty{padding:5px 7px;color:var(--dsw-alias-label-tertiary);font-size:11.5px;display:flex;align-items:center;gap:5px}
+.dgp-menu-divider{height:.5px;background:var(--dsw-alias-border-l3);margin:4px 0}
+.dgp-branch-create{display:flex;align-items:center;gap:5px;padding:3px 4px}
+.dgp-branch-create .dgp-filter-input{height:24px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm,4px);padding:0 5px;background:var(--dsw-alias-bg-layer-1)}
+.dgp-branch-create .dgp-btn{height:24px;font-size:11px}
+.dgp-branch-tags{display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:2px 7px 6px}
 .dgp-diff-options{flex:none;display:flex;align-items:center;gap:10px;padding:4px 12px;border-bottom:.5px solid var(--dsw-alias-border-l3);flex-wrap:wrap}
 .dgp-select{height:22px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm,4px);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:11px;padding:0 4px}
 .dgp-diff{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.45;min-width:max-content;padding-bottom:4px}
@@ -1970,6 +1987,136 @@ window.__ModuleLoader__.load({
       );
     }
 
+    function BranchMenu({ summary, branches, branchState, tags, tagsState, t, busy, onSwitch }) {
+      const [open, setOpen] = useState(false);
+      const [draft, setDraft] = useState('');
+      const rootRef = useRef(null);
+
+      useEffect(() => {
+        if (!open) return undefined;
+        const onPointer = (event) => {
+          if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false);
+        };
+        const onKey = (event) => {
+          if (event.key === 'Escape') setOpen(false);
+        };
+        document.addEventListener('mousedown', onPointer);
+        document.addEventListener('keydown', onKey);
+        return () => {
+          document.removeEventListener('mousedown', onPointer);
+          document.removeEventListener('keydown', onKey);
+        };
+      }, [open]);
+
+      const switchTo = (name, create) => {
+        if (!name || busy) return;
+        setOpen(false);
+        setDraft('');
+        onSwitch(name, create);
+      };
+
+      return h(
+        'span',
+        { className: 'dgp-branch-wrap', ref: rootRef },
+        h(
+          'button',
+          {
+            type: 'button',
+            className: 'dgp-branch-btn',
+            'aria-haspopup': 'menu',
+            'aria-expanded': open,
+            title: t('branch.switch'),
+            onClick: () => setOpen((value) => !value),
+          },
+          h(BranchChip, {
+            branch: summary ? summary.branch : null,
+            detached: summary ? summary.detached : false,
+            oid: summary ? summary.oid : null,
+            t,
+          }),
+          h(IconChevron, { size: 10, open }),
+        ),
+        open
+          ? h(
+              'div',
+              { className: 'dgp-menu dgp-branch-menu', role: 'menu' },
+              h('div', { className: 'dgp-menu-label' }, t('branch.switch')),
+              !branchState || branchState.loading
+                ? h('div', { className: 'dgp-menu-empty' }, h(Spinner), ' ', t('branch.loading'))
+                : branchState.error
+                  ? h('div', { className: 'dgp-menu-empty' }, branchState.error)
+                  : (branches || []).map((branch) =>
+                      h(
+                        'button',
+                        {
+                          key: branch.name,
+                          type: 'button',
+                          role: 'menuitem',
+                          className:
+                            'dgp-menu-item' + (branch.current ? ' dgp-current' : ''),
+                          disabled: busy,
+                          onClick: () => switchTo(branch.name, false),
+                        },
+                        h(IconBranch, { size: 12 }),
+                        h('span', { className: 'dgp-menu-name' }, branch.name),
+                        branch.current
+                          ? h(IconCheck, { size: 12 })
+                          : null,
+                      ),
+                    ),
+              h('div', { className: 'dgp-menu-divider' }),
+              h('div', { className: 'dgp-menu-label' }, t('branch.new')),
+              h(
+                'div',
+                { className: 'dgp-branch-create' },
+                h('input', {
+                  className: 'dgp-filter-input',
+                  value: draft,
+                  placeholder: t('branch.newPlaceholder'),
+                  disabled: busy,
+                  onChange: (event) => setDraft(event.target.value),
+                  onKeyDown: (event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      switchTo(draft.trim(), true);
+                    }
+                  },
+                }),
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    className: 'dgp-btn',
+                    disabled: busy || draft.trim().length === 0,
+                    onClick: () => switchTo(draft.trim(), true),
+                  },
+                  t('branch.create'),
+                ),
+              ),
+              (tags || []).length
+                ? h(
+                    React.Fragment,
+                    null,
+                    h('div', { className: 'dgp-menu-divider' }),
+                    h('div', { className: 'dgp-menu-label' }, t('branch.tags')),
+                    h(
+                      'div',
+                      { className: 'dgp-branch-tags' },
+                      tags.map((tag) =>
+                        h(
+                          'span',
+                          { key: tag.name, className: 'dgp-ref dgp-ref-tag', title: tag.sha || tag.name },
+                          tag.name,
+                        ),
+                      ),
+                    ),
+                  )
+                : null,
+            )
+          : null,
+      );
+    }
+
     function RepoSwitcher({ repos, current, onSelect, t }) {
       const [open, setOpen] = useState(false);
       const rootRef = useRef(null);
@@ -2191,6 +2338,11 @@ window.__ModuleLoader__.load({
       canBack,
       repos,
       onSwitch,
+      branches,
+      branchState,
+      onSwitchBranch,
+      tags,
+      tagsState,
       onChoose,
       onRefresh,
       expanded,
@@ -2289,11 +2441,15 @@ window.__ModuleLoader__.load({
               : null,
             h('span', { className: 'dgp-repo-name dgp-grow', title: name }, name),
             summary
-              ? h(BranchChip, {
-                  branch: summary.branch,
-                  detached: summary.detached,
-                  oid: summary.oid,
+              ? h(BranchMenu, {
+                  summary,
+                  branches,
+                  branchState,
+                  tags,
+                  tagsState,
                   t,
+                  busy,
+                  onSwitch: onSwitchBranch,
                 })
               : null,
             summary ? h(AheadBehind, { ahead: summary.ahead, behind: summary.behind, t }) : null,
@@ -2733,6 +2889,11 @@ window.__ModuleLoader__.load({
       const [blameState, setBlameState] = useState(null);
       const [fileHistoryTarget, setFileHistoryTarget] = useState(null);
       const [fileHistoryState, setFileHistoryState] = useState(null);
+      const [branches, setBranches] = useState([]);
+      const [branchState, setBranchState] = useState(null);
+      const [tags, setTags] = useState([]);
+      const [tagsState, setTagsState] = useState(null);
+      const [branchRefresh, setBranchRefresh] = useState(0);
       const [commitMessage, setCommitMessage] = useState('');
       const [amend, setAmend] = useState(false);
       const [signoff, setSignoff] = useState(false);
@@ -2780,6 +2941,46 @@ window.__ModuleLoader__.load({
         setWriteError(null);
         setConfirm(null);
       }, [selectedRepo]);
+
+      useEffect(() => {
+        if (!selectedRepo || hidden || !visible) {
+          setBranches([]);
+          setTags([]);
+          return undefined;
+        }
+        let cancelled = false;
+        const controller = new AbortController();
+        setBranchState({ loading: true });
+        setTagsState({ loading: true });
+        callRpc(call, 'branches', { repo: selectedRepo }, controller.signal)
+          .then((value) => {
+            if (!cancelled && alive.current) {
+              setBranches(value.branches || []);
+              setBranchState(null);
+            }
+          })
+          .catch((error) => {
+            if (!cancelled && alive.current && error?.code !== 'aborted') {
+              setBranchState({ error: formatError(error, t) });
+            }
+          });
+        callRpc(call, 'tags', { repo: selectedRepo }, controller.signal)
+          .then((value) => {
+            if (!cancelled && alive.current) {
+              setTags(value.tags || []);
+              setTagsState(null);
+            }
+          })
+          .catch((error) => {
+            if (!cancelled && alive.current && error?.code !== 'aborted') {
+              setTagsState({ error: formatError(error, t) });
+            }
+          });
+        return () => {
+          cancelled = true;
+          controller.abort();
+        };
+      }, [selectedRepo, branchRefresh, hidden, visible, call]);
 
       useEffect(() => {
         if (!sessionId || typeof localStorage === 'undefined') return;
@@ -3113,6 +3314,17 @@ window.__ModuleLoader__.load({
       const stageChange = (change) => stagePaths([change.path]);
       const unstageChange = (change) => unstagePaths([change.path]);
 
+      const switchBranch = (name, create) =>
+        runWrite(async () => {
+          await callRpc(
+            call,
+            'switchBranch',
+            { repo: selectedRepo, name, create },
+            tab.signal,
+          );
+          setBranchRefresh((current) => current + 1);
+        });
+
       const commitNow = async () => {
         const message = commitMessage.trim();
         if (!message && !amend) {
@@ -3288,6 +3500,11 @@ window.__ModuleLoader__.load({
             canBack: repos.length > 1,
             repos,
             onSwitch: selectRepo,
+            branches,
+            branchState,
+            onSwitchBranch: switchBranch,
+            tags,
+            tagsState,
             onChoose: chooseFolder,
             onRefresh: refreshNow,
             expanded,

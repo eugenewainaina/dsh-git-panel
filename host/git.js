@@ -784,6 +784,89 @@ export function createReader(options = {}) {
     });
   }
 
+  /**
+   * @param {string} repo
+   * @param {{ fresh?: boolean, signal?: AbortSignal }} request
+   */
+  async function branches(repo, request = {}) {
+    const fresh = request.fresh === true;
+    const root = await resolveRoot(repo, request.signal, fresh);
+    if (!root) throw panelError('not-a-repo', 'That folder is not inside a git repository.');
+    return remember(`branches:${root}`, 5_000, fresh, async () => {
+      const output = await git(
+        root,
+        [
+          'for-each-ref',
+          '--format=%(refname:short)%09%(HEAD)%09%(upstream:short)%09%(objectname:short)',
+          'refs/heads',
+        ],
+        request.signal,
+      );
+      const list = output
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => {
+          const [name, head, upstream, sha] = line.split('\t');
+          return {
+            name,
+            current: head.trim() === '*',
+            upstream: upstream || null,
+            sha: sha || null,
+          };
+        });
+      return { branches: list, current: list.find((branch) => branch.current)?.name || null };
+    });
+  }
+
+  /**
+   * @param {string} repo
+   * @param {{ name?: string, create?: boolean, signal?: AbortSignal }} request
+   */
+  async function switchBranch(repo, request = {}) {
+    const name = typeof request.name === 'string' ? request.name.trim() : '';
+    if (!name || name.length > 255 || name.startsWith('-')) {
+      throw panelError('bad-request', 'Invalid branch name.');
+    }
+    return writeAction(async () => {
+      const root = await resolveRoot(repo, request.signal, false);
+      if (!root) throw panelError('not-a-repo', 'That folder is not inside a git repository.');
+      try {
+        await git(root, ['check-ref-format', '--branch', name], request.signal);
+      } catch {
+        throw panelError('bad-request', 'Invalid branch name.');
+      }
+      const args = request.create === true ? ['switch', '-c', name] : ['switch', name];
+      await git(root, args, request.signal);
+      return { ok: true, branch: name };
+    });
+  }
+
+  /**
+   * @param {string} repo
+   * @param {{ fresh?: boolean, signal?: AbortSignal }} request
+   */
+  async function tags(repo, request = {}) {
+    const fresh = request.fresh === true;
+    const root = await resolveRoot(repo, request.signal, fresh);
+    if (!root) throw panelError('not-a-repo', 'That folder is not inside a git repository.');
+    return remember(`tags:${root}`, 5_000, fresh, async () => {
+      const output = await git(
+        root,
+        ['tag', '--list', '--format=%(refname:short)%09%(objectname:short)'],
+        request.signal,
+      );
+      return {
+        tags: output
+          .split('\n')
+          .filter(Boolean)
+          .map((line) => {
+            const [name, sha] = line.split('\t');
+            return { name, sha: sha || null };
+          }),
+      };
+    });
+  }
+
   return {
     discover,
     summary,
@@ -797,5 +880,8 @@ export function createReader(options = {}) {
     undo: undoCommit,
     blame,
     fileLog,
+    branches,
+    switchBranch,
+    tags,
   };
 }

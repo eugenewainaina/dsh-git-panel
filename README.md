@@ -19,8 +19,10 @@ working tree, branches, and commit graph.
   blame for the current file, and browse that file's commit history from a diff.
 - **Write core** — stage/unstage files, commit, amend, sign off, discard a
   working-tree change after confirmation, and undo the last commit.
-- **No network operations** — fetching, pulling, pushing, branches, and history
-  rewriting are not implemented yet.
+- **Branches and tags** — switch or create a local branch from the header, and
+  see the repository's tags in the same menu.
+- **No network operations** — fetching, pulling, pushing, and history rewriting
+  are not implemented yet.
 
 ## Requirements
 
@@ -117,18 +119,19 @@ node --check client.js
 node --test test/*.test.js
 ```
 
-30 tests cover the parsers against synthetic and real temporary repositories
-(including merges, renames, conflicts, worktrees, unborn branches, and the write
-operations), the repository scanner, the RPC dispatcher, the HTTP envelope
-bridge, the commit lane layout, the unified-diff parser, and side-by-side pairing.
+31 tests cover the parsers against synthetic and real temporary repositories
+(including merges, renames, conflicts, worktrees, unborn branches, branches,
+tags, and the write operations), the repository scanner, the RPC dispatcher, the
+HTTP envelope bridge, the commit lane layout, the unified-diff parser, and
+side-by-side pairing.
 
 `client.js` is plain JavaScript with no JSX and no bundler step; React is
 supplied by the host's module table. Host modules are plain ESM.
 
 ## Limitations
 
-- No network operations yet: no fetch, pull, push, branch switching, rebase,
-  stash, tags, or conflict resolution.
+- No network operations yet: no fetch, pull, push, rebase, stash, or conflict
+  resolution. Tag creation/deletion is not exposed; tags are listed.
 - Staging is file-level; hunk and line staging are not implemented.
 - Blame is line-oriented and capped at 5000 lines; file history is capped at
   100 commits.
