@@ -32,6 +32,7 @@ window.__ModuleLoader__.load({
       'action.fullHistory': 'Full history',
       'action.backToChanges': 'Back',
       'action.cancel': 'Cancel',
+      'action.blame': 'Blame',
       'detail.all': 'All',
       'detail.changes': 'Changes',
       'detail.history': 'History',
@@ -58,6 +59,10 @@ window.__ModuleLoader__.load({
       'changes.discardText': 'This permanently discards the working-tree changes for',
       'changes.discardUntrackedText': 'This permanently deletes the untracked file',
       'changes.discardConfirm': 'Discard',
+      'filter.changes': 'Filter changes',
+      'filter.commits': 'Filter commits',
+      'filter.clear': 'Clear filter',
+      'filter.none': 'No matches.',
       'history.empty': 'No commits yet',
       'history.undo': 'Undo last commit',
       'history.undoTitle': 'Undo the last commit?',
@@ -96,6 +101,11 @@ window.__ModuleLoader__.load({
       'diff.binary': 'Binary file — no text diff.',
       'diff.empty': 'No diff to show.',
       'diff.truncated': 'Diff truncated at 200 KB.',
+      'diff.ignoreWhitespace': 'Ignore whitespace',
+      'diff.context': 'Context',
+      'blame.loading': 'Loading blame…',
+      'blame.empty': 'No blame for this file.',
+      'blame.truncated': 'Blame truncated at 5000 lines.',
       'repo.failed': 'Could not read this repository',
       'repo.clean': 'clean',
     };
@@ -161,6 +171,12 @@ window.__ModuleLoader__.load({
 .dgp-change:hover .dgp-change-actions,.dgp-change:focus-within .dgp-change-actions{opacity:1}
 .dgp-change-actions .dgp-icon-btn{width:22px;height:22px}
 .dgp-changes-view,.dgp-history-view{display:flex;flex-direction:column;min-width:0}
+.dgp-filter{display:flex;align-items:center;gap:5px;margin:6px 12px;padding:0 6px;height:26px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm,4px);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-tertiary)}
+.dgp-filter:focus-within{border-color:var(--dsw-alias-brand-primary)}
+.dgp-filter-input{flex:1;min-width:0;border:0;background:0 0;color:var(--dsw-alias-label-primary);font:inherit;font-size:11.5px;outline:0;padding:0}
+.dgp-filter-input::placeholder{color:var(--dsw-alias-label-tertiary)}
+.dgp-filter-clear{width:18px;height:18px;border:0;background:0 0;color:var(--dsw-alias-label-tertiary);font-size:14px;line-height:1;cursor:pointer;padding:0;border-radius:3px}
+.dgp-filter-clear:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}
 .dgp-commit-box{position:sticky;top:0;z-index:5;display:flex;flex-direction:column;gap:6px;padding:8px 12px;border-bottom:.5px solid var(--dsw-alias-border-l3);background:var(--dsw-alias-bg-base)}
 .dgp-textarea{width:100%;box-sizing:border-box;min-height:46px;max-height:140px;resize:vertical;padding:6px 8px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm,4px);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;line-height:1.45}
 .dgp-textarea:focus{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:0}
@@ -245,6 +261,16 @@ window.__ModuleLoader__.load({
 .dgp-diff-head{flex:none;display:flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;border-bottom:.5px solid var(--dsw-alias-border-l3);min-width:0}
 .dgp-diff-title{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .dgp-diff-body{padding:0 0 16px;overflow:auto}
+.dgp-blame-body{padding:0 0 16px;overflow:auto}
+.dgp-blame{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.55;min-width:max-content}
+.dgp-blame-line{display:flex;align-items:flex-start;min-height:17px;padding:0 8px 0 0;white-space:pre}
+.dgp-blame-line:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.dgp-blame-num{width:34px;flex:none;text-align:right;padding-right:6px;color:var(--dsw-alias-label-tertiary);user-select:none}
+.dgp-blame-sha{width:58px;flex:none;color:var(--dsw-alias-brand-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dgp-blame-author{width:96px;flex:none;color:var(--dsw-alias-label-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:6px}
+.dgp-blame-text{flex:1;min-width:0;white-space:pre;padding-right:12px}
+.dgp-diff-options{flex:none;display:flex;align-items:center;gap:10px;padding:4px 12px;border-bottom:.5px solid var(--dsw-alias-border-l3);flex-wrap:wrap}
+.dgp-select{height:22px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm,4px);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:11px;padding:0 4px}
 .dgp-diff{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.45;min-width:max-content;padding-bottom:4px}
 .dgp-diff-line{display:flex;align-items:flex-start;min-height:16px;white-space:pre}
 .dgp-diff-num{width:30px;flex:none;text-align:right;padding-right:5px;color:var(--dsw-alias-label-tertiary);user-select:none;font-variant-numeric:tabular-nums}
@@ -725,6 +751,28 @@ window.__ModuleLoader__.load({
           h('path', { key: 'lid', d: 'M4 7h16', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' }),
           h('path', { key: 'body', d: 'M7 7v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7', stroke: 'currentColor', strokeWidth: 1.7, strokeLinejoin: 'round' }),
           h('path', { key: 'top', d: 'M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2', stroke: 'currentColor', strokeWidth: 1.7, strokeLinejoin: 'round' }),
+        ],
+      );
+    }
+
+    function IconSearch({ size = 13 }) {
+      return h(
+        'svg',
+        { className: 'dgp-icon', viewBox: '0 0 24 24', width: size, height: size, fill: 'none', 'aria-hidden': true },
+        [
+          h('circle', { key: 'c', cx: 10.5, cy: 10.5, r: 6, stroke: 'currentColor', strokeWidth: 1.7 }),
+          h('path', { key: 'l', d: 'm15 15 4.5 4.5', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' }),
+        ],
+      );
+    }
+
+    function IconBlame({ size = 13 }) {
+      return h(
+        'svg',
+        { className: 'dgp-icon', viewBox: '0 0 24 24', width: size, height: size, fill: 'none', 'aria-hidden': true },
+        [
+          h('circle', { key: 'head', cx: 12, cy: 7.5, r: 3.2, stroke: 'currentColor', strokeWidth: 1.7 }),
+          h('path', { key: 'body', d: 'M5 20c0-4 3.2-6 7-6s7 2 7 6', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' }),
         ],
       );
     }
@@ -1386,7 +1434,7 @@ window.__ModuleLoader__.load({
       );
     }
 
-    function DiffPanel({ target, state, t, onBack, onRetry }) {
+    function DiffPanel({ target, state, options, t, onBack, onRetry, onReload, onBlame }) {
       const data = state && state.data;
       const rows = useMemo(
         () => (data && data.patch ? parsePatch(data.patch) : []),
@@ -1414,10 +1462,52 @@ window.__ModuleLoader__.load({
                 h('span', { className: 'dgp-del' }, '\u2212' + (target.deletions || 0)),
               )
             : null,
+          onBlame
+            ? h(
+                IconButton,
+                {
+                  label: t('action.blame'),
+                  onClick: () => onBlame(target.path),
+                },
+                h(IconBlame),
+              )
+            : null,
           h(
             IconButton,
             { label: t('action.retry'), onClick: onRetry },
             state && state.loading ? h(Spinner) : h(IconRefresh),
+          ),
+        ),
+        h(
+          'div',
+          { className: 'dgp-diff-options' },
+          h(
+            'label',
+            { className: 'dgp-check' },
+            h('input', {
+              type: 'checkbox',
+              checked: options.ignoreWhitespace === true,
+              onChange: (event) =>
+                onReload({ ...options, ignoreWhitespace: event.target.checked }),
+            }),
+            t('diff.ignoreWhitespace'),
+          ),
+          h(
+            'label',
+            { className: 'dgp-check' },
+            t('diff.context'),
+            h(
+              'select',
+              {
+                className: 'dgp-select',
+                value: String(options.context || 3),
+                onChange: (event) =>
+                  onReload({ ...options, context: Number(event.target.value) }),
+              },
+              [3, 5, 10].map((value) =>
+                h('option', { key: value, value: String(value) }, String(value)),
+              ),
+            ),
           ),
         ),
         h(
@@ -1606,6 +1696,66 @@ window.__ModuleLoader__.load({
             { className: 'dgp-commit-count' },
             String(stagedCount) + ' ' + t('commit.staged'),
           ),
+        ),
+      );
+    }
+
+    function BlamePanel({ target, state, t, onBack, onRetry }) {
+      const data = state && state.data;
+      const lines = data ? data.lines : [];
+
+      return h(
+        React.Fragment,
+        null,
+        h(
+          'div',
+          { className: 'dgp-diff-head' },
+          h(IconButton, { label: t('action.back'), onClick: onBack }, h(IconBack)),
+          h('span', { className: 'dgp-diff-title dgp-grow', title: target.path }, target.path),
+          h(
+            IconButton,
+            { label: t('action.retry'), onClick: onRetry },
+            state && state.loading ? h(Spinner) : h(IconRefresh),
+          ),
+        ),
+        h(
+          'div',
+          { className: 'dgp-body dgp-blame-body' },
+          !state || state.loading
+            ? h('div', { className: 'dgp-note' }, h(Spinner), ' ', t('blame.loading'))
+            : state.error
+              ? h(ErrorState, { message: state.error, t, onRetry, onBack })
+              : lines.length === 0
+                ? h('div', { className: 'dgp-note' }, t('blame.empty'))
+                : h(
+                    'div',
+                    { className: 'dgp-blame' },
+                    lines.map((line, index) =>
+                      h(
+                        'div',
+                        { key: index, className: 'dgp-blame-line' },
+                        h('span', { className: 'dgp-blame-num' }, String(line.line)),
+                        h(
+                          'span',
+                          { className: 'dgp-blame-sha', title: line.sha },
+                          shortSha(line.sha),
+                        ),
+                        h(
+                          'span',
+                          { className: 'dgp-blame-author', title: line.author },
+                          line.author || '',
+                        ),
+                        h(
+                          'span',
+                          { className: 'dgp-blame-text' },
+                          line.text === '' ? '\u00a0' : line.text,
+                        ),
+                      ),
+                    ),
+                    data.truncated
+                      ? h('div', { className: 'dgp-note' }, t('blame.truncated'))
+                      : null,
+                  ),
         ),
       );
     }
@@ -1841,6 +1991,13 @@ window.__ModuleLoader__.load({
       onOpenDiff,
       onCloseDiff,
       onRetryDiff,
+      diffOptions,
+      onReloadDiff,
+      blameTarget,
+      blameState,
+      onOpenBlame,
+      onCloseBlame,
+      onRetryBlame,
       commitMessage,
       onMessage,
       amend,
@@ -1867,6 +2024,36 @@ window.__ModuleLoader__.load({
       const commits = (value && value.commits) || [];
       const changedCount = summary ? summary.changedFiles : changes.length;
       const historyCount = commits.length + (value && value.commitsTruncated ? 1 : 0);
+      const [changeFilter, setChangeFilter] = useState('');
+      const [commitFilter, setCommitFilter] = useState('');
+
+      useEffect(() => {
+        setChangeFilter('');
+        setCommitFilter('');
+      }, [repo]);
+
+      const visibleChanges = useMemo(() => {
+        const query = changeFilter.trim().toLowerCase();
+        if (!query) return changes;
+        return changes.filter(
+          (change) =>
+            change.path.toLowerCase().includes(query) ||
+            (change.oldPath || '').toLowerCase().includes(query) ||
+            change.status.toLowerCase() === query,
+        );
+      }, [changes, changeFilter]);
+
+      const visibleCommits = useMemo(() => {
+        const query = commitFilter.trim().toLowerCase();
+        if (!query) return commits;
+        return commits.filter(
+          (commit) =>
+            commit.subject.toLowerCase().includes(query) ||
+            commit.author.toLowerCase().includes(query) ||
+            commit.sha.toLowerCase().includes(query) ||
+            commit.refs.some((ref) => ref.name.toLowerCase().includes(query)),
+        );
+      }, [commits, commitFilter]);
 
       return h(
         React.Fragment,
@@ -1920,7 +2107,7 @@ window.__ModuleLoader__.load({
               ),
             ),
           ),
-          diffTarget
+          diffTarget || blameTarget
             ? null
             : h(
             'div',
@@ -1963,13 +2150,24 @@ window.__ModuleLoader__.load({
           ),
         ),
         writeError ? h('div', { className: 'dgp-error-banner' }, writeError) : null,
-        diffTarget
+        blameTarget
+          ? h(BlamePanel, {
+              target: blameTarget,
+              state: blameState,
+              t,
+              onBack: onCloseBlame,
+              onRetry: onRetryBlame,
+            })
+          : diffTarget
           ? h(DiffPanel, {
               target: diffTarget,
               state: diffState,
+              options: diffOptions,
               t,
               onBack: onCloseDiff,
               onRetry: onRetryDiff,
+              onReload: onReloadDiff,
+              onBlame: onOpenBlame,
             })
           : h(
           'div',
@@ -2101,18 +2299,26 @@ window.__ModuleLoader__.load({
                             ),
                             busy ? h(Spinner) : null,
                           ),
-                          h(ChangesList, {
-                            changes,
+                          h(FilterInput, {
+                            value: changeFilter,
+                            onChange: setChangeFilter,
+                            placeholder: t('filter.changes'),
                             t,
-                            truncated: summary && summary.truncated,
-                            onSelect: onOpenDiff,
-                            showStats: true,
-                            showActions: true,
-                            onStage,
-                            onUnstage,
-                            onDiscard,
-                            busy,
                           }),
+                          changeFilter && visibleChanges.length === 0
+                            ? h('div', { className: 'dgp-note' }, t('filter.none'))
+                            : h(ChangesList, {
+                                changes: visibleChanges,
+                                t,
+                                truncated: summary && summary.truncated,
+                                onSelect: onOpenDiff,
+                                showStats: true,
+                                showActions: true,
+                                onStage,
+                                onUnstage,
+                                onDiscard,
+                                busy,
+                              }),
                         )
                       : h(
                           'div',
@@ -2134,20 +2340,57 @@ window.__ModuleLoader__.load({
                                 busy ? h(Spinner) : null,
                               )
                             : null,
-                          h(HistoryList, {
-                            repo,
-                            commits,
-                            headSha: value.headCommit && value.headCommit.sha,
+                          h(FilterInput, {
+                            value: commitFilter,
+                            onChange: setCommitFilter,
+                            placeholder: t('filter.commits'),
                             t,
-                            expanded,
-                            cache,
-                            onToggle: onToggleCommit,
-                            truncated: value.commitsTruncated,
-                            onDiff: onOpenDiff,
                           }),
+                          commitFilter && visibleCommits.length === 0
+                            ? h('div', { className: 'dgp-note' }, t('filter.none'))
+                            : h(HistoryList, {
+                                repo,
+                                commits: visibleCommits,
+                                headSha: value.headCommit && value.headCommit.sha,
+                                t,
+                                expanded,
+                                cache,
+                                onToggle: onToggleCommit,
+                                truncated: value.commitsTruncated,
+                                onDiff: onOpenDiff,
+                              }),
                         ),
                 ),
         ),
+      );
+    }
+
+    function FilterInput({ value, onChange, placeholder, t }) {
+      return h(
+        'div',
+        { className: 'dgp-filter' },
+        h(IconSearch, { size: 13 }),
+        h('input', {
+          className: 'dgp-filter-input',
+          type: 'search',
+          value,
+          placeholder,
+          'aria-label': placeholder,
+          onChange: (event) => onChange(event.target.value),
+        }),
+        value
+          ? h(
+              'button',
+              {
+                type: 'button',
+                className: 'dgp-filter-clear',
+                'aria-label': t('filter.clear'),
+                title: t('filter.clear'),
+                onClick: () => onChange(''),
+              },
+              '\u00d7',
+            )
+          : null,
       );
     }
 
@@ -2259,6 +2502,9 @@ window.__ModuleLoader__.load({
       const [refresh, setRefresh] = useState({ n: 0, fresh: false });
       const [diffTarget, setDiffTarget] = useState(null);
       const [diffState, setDiffState] = useState(null);
+      const [diffOptions, setDiffOptions] = useState({ ignoreWhitespace: false, context: 3 });
+      const [blameTarget, setBlameTarget] = useState(null);
+      const [blameState, setBlameState] = useState(null);
       const [commitMessage, setCommitMessage] = useState('');
       const [amend, setAmend] = useState(false);
       const [signoff, setSignoff] = useState(false);
@@ -2267,6 +2513,7 @@ window.__ModuleLoader__.load({
       const [confirm, setConfirm] = useState(null);
       const alive = useRef(true);
       const diffController = useRef(null);
+      const blameController = useRef(null);
       const writeBusy = useRef(false);
 
       useEffect(() => {
@@ -2279,6 +2526,7 @@ window.__ModuleLoader__.load({
       useEffect(
         () => () => {
           if (diffController.current) diffController.current.abort();
+          if (blameController.current) blameController.current.abort();
         },
         [],
       );
@@ -2286,8 +2534,12 @@ window.__ModuleLoader__.load({
       useEffect(() => {
         if (diffController.current) diffController.current.abort();
         diffController.current = null;
+        if (blameController.current) blameController.current.abort();
+        blameController.current = null;
         setDiffTarget(null);
         setDiffState(null);
+        setBlameTarget(null);
+        setBlameState(null);
         setCommitMessage('');
         setAmend(false);
         setSignoff(false);
@@ -2485,12 +2737,44 @@ window.__ModuleLoader__.load({
         setDiffState(null);
       };
 
-      const openDiff = (target) => {
+      const closeBlame = () => {
+        if (blameController.current) {
+          blameController.current.abort();
+          blameController.current = null;
+        }
+        setBlameTarget(null);
+        setBlameState(null);
+      };
+
+      const openBlame = (path) => {
+        if (!selectedRepo || typeof path !== 'string' || !path) return;
+        if (blameController.current) blameController.current.abort();
+        const controller = new AbortController();
+        blameController.current = controller;
+        setBlameTarget({ path });
+        setBlameState({ loading: true });
+        callRpc(call, 'blame', { repo: selectedRepo, path }, controller.signal)
+          .then((data) => {
+            if (!controller.signal.aborted && alive.current) setBlameState({ data });
+          })
+          .catch((error) => {
+            if (!controller.signal.aborted && alive.current && error?.code !== 'aborted') {
+              setBlameState({ error: formatError(error, t) });
+            }
+          });
+      };
+
+      const retryBlame = () => {
+        if (blameTarget) openBlame(blameTarget.path);
+      };
+
+      const openDiff = (target, options = diffOptions) => {
         if (!selectedRepo || !target) return;
         if (diffController.current) diffController.current.abort();
         const controller = new AbortController();
         diffController.current = controller;
         setDiffTarget(target);
+        setDiffOptions(options);
         setDiffState({ loading: true });
         callRpc(
           call,
@@ -2500,6 +2784,8 @@ window.__ModuleLoader__.load({
             path: target.path,
             group: target.group,
             sha: target.sha,
+            ignoreWhitespace: options.ignoreWhitespace === true,
+            context: options.context || 3,
           },
           controller.signal,
         )
@@ -2514,11 +2800,12 @@ window.__ModuleLoader__.load({
       };
 
       const retryDiff = () => {
-        if (diffTarget) openDiff(diffTarget);
+        if (diffTarget) openDiff(diffTarget, diffOptions);
       };
 
       const changeView = (next) => {
         closeDiff();
+        closeBlame();
         setView(next);
       };
 
@@ -2655,12 +2942,14 @@ window.__ModuleLoader__.load({
 
       const selectRepo = (path) => {
         closeDiff();
+        closeBlame();
         setSelectedRepo(path);
         setExpanded({});
       };
 
       const goBack = () => {
         closeDiff();
+        closeBlame();
         setSelectedRepo(null);
         setExpanded({});
       };
@@ -2734,6 +3023,13 @@ window.__ModuleLoader__.load({
             onOpenDiff: openDiff,
             onCloseDiff: closeDiff,
             onRetryDiff: retryDiff,
+            diffOptions,
+            onReloadDiff: (options) => openDiff(diffTarget, options),
+            blameTarget,
+            blameState,
+            onOpenBlame: openBlame,
+            onCloseBlame: closeBlame,
+            onRetryBlame: retryBlame,
             commitMessage,
             onMessage: setCommitMessage,
             amend,

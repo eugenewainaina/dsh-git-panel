@@ -12,6 +12,7 @@ import {
   parseNumstat,
   parseParents,
   parseStatus,
+  parseBlame,
 } from './parse.js';
 import { scanRepos } from './discover.js';
 import { abortError, createCache, createLimiter } from './cache.js';
@@ -570,8 +571,11 @@ export function createReader(options = {}) {
     if (group === 'commit' && !SHA.test(request.sha ?? '')) {
       throw panelError('bad-request', 'Invalid commit id.');
     }
+    const ignoreWhitespace = request.ignoreWhitespace === true;
+    const context = Math.min(10, Math.max(0, Number(request.context) || 3));
+    const unified = `--unified=${context}`;
 
-    const key = `diff:${root}:${group}:${group === 'commit' ? request.sha : ''}:${rel}`;
+    const key = `diff:${root}:${group}:${group === 'commit' ? request.sha : ''}:${rel}:${ignoreWhitespace ? 'w' : '-'}:${context}`;
     const ttl = group === 'commit' ? 60_000 : 2_000;
     return remember(key, ttl, fresh, async () => {
       if (group === 'untracked') {
@@ -593,12 +597,12 @@ export function createReader(options = {}) {
         const { parents } = parseParents(parentsOutput);
         args =
           parents.length === 0
-            ? ['show', '--format=', '--no-color', '--no-ext-diff', '--unified=3', '-M', request.sha, '--', rel]
-            : ['diff', '--no-color', '--no-ext-diff', '--unified=3', '-M', `${request.sha}^1`, request.sha, '--', rel];
+            ? ['show', '--format=', '--no-color', '--no-ext-diff', unified, '-M', ...(ignoreWhitespace ? ['-w'] : []), request.sha, '--', rel]
+            : ['diff', '--no-color', '--no-ext-diff', unified, '-M', ...(ignoreWhitespace ? ['-w'] : []), `${request.sha}^1`, request.sha, '--', rel];
       } else if (group === 'staged') {
-        args = ['diff', '--cached', '--no-color', '--no-ext-diff', '--unified=3', '-M', '--', rel];
+        args = ['diff', '--cached', '--no-color', '--no-ext-diff', unified, '-M', ...(ignoreWhitespace ? ['-w'] : []), '--', rel];
       } else {
-        args = ['diff', '--no-color', '--no-ext-diff', '--unified=3', '-M', '--', rel];
+        args = ['diff', '--no-color', '--no-ext-diff', unified, '-M', ...(ignoreWhitespace ? ['-w'] : []), '--', rel];
       }
 
       const output = await git(root, args, request.signal);
@@ -736,6 +740,26 @@ export function createReader(options = {}) {
     });
   }
 
+  /**
+   * @param {string} repo
+   * @param {{ path?: string, fresh?: boolean, signal?: AbortSignal }} request
+   */
+  async function blame(repo, request = {}) {
+    const rel = relativeRepoPath(request.path);
+    const fresh = request.fresh === true;
+    const root = await resolveRoot(repo, request.signal, fresh);
+    if (!root) throw panelError('not-a-repo', 'That folder is not inside a git repository.');
+    return remember(`blame:${root}:${rel}`, 5_000, fresh, async () => {
+      const output = await git(root, ['blame', '--line-porcelain', '--', rel], request.signal);
+      const lines = parseBlame(output);
+      return {
+        path: rel,
+        lines: lines.slice(0, 5000),
+        truncated: lines.length > 5000,
+      };
+    });
+  }
+
   return {
     discover,
     summary,
@@ -747,5 +771,6 @@ export function createReader(options = {}) {
     discard,
     commitStaged,
     undo: undoCommit,
+    blame,
   };
 }

@@ -295,3 +295,43 @@ export function parseDiffTree(nameStatusRaw, numstatRaw) {
   files.sort((left, right) => left.path.localeCompare(right.path));
   return files;
 }
+
+
+/**
+ * Parse `git blame --line-porcelain` output.
+ * @param {string} raw
+ * @returns {Array<{ sha: string, line: number, author: string, authorTime: number, summary: string, text: string }>}
+ */
+export function parseBlame(raw) {
+  const lines = [];
+  let current = null;
+
+  for (const line of String(raw ?? '').split('\n')) {
+    const header = /^\^?([0-9a-f]{4,64}) \d+ (\d+)(?: \d+)?$/.exec(line);
+    if (header) {
+      current = {
+        sha: header[1],
+        line: Number(header[2]),
+        author: '',
+        authorTime: 0,
+        summary: '',
+        text: '',
+      };
+      continue;
+    }
+    if (!current) continue;
+    if (line.startsWith('\t')) {
+      lines.push({ ...current, text: line.slice(1) });
+      continue;
+    }
+    const space = line.indexOf(' ');
+    if (space < 0) continue;
+    const key = line.slice(0, space);
+    const value = line.slice(space + 1);
+    if (key === 'author') current.author = value;
+    else if (key === 'author-time') current.authorTime = Number(value) || 0;
+    else if (key === 'summary') current.summary = value;
+  }
+
+  return lines;
+}

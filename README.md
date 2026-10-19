@@ -13,7 +13,10 @@ working tree, branches, and commit graph.
 - **Live** — detail polls every 3s, the folder overview every 10s; both pause
   when the tab is hidden.
 - **Diffs** — click a changed file or a commit file to see the unified diff
-  with line numbers and colored hunks.
+  with line numbers, colored hunks, optional whitespace ignoring, and a
+  context-size control.
+- **Inspection** — filter the change list and the commit graph by text, and open
+  blame for the current file from a diff.
 - **Write core** — stage/unstage files, commit, amend, sign off, discard a
   working-tree change after confirmation, and undo the last commit.
 - **No network operations** — fetching, pulling, pushing, branches, and history
@@ -127,6 +130,8 @@ supplied by the host's module table. Host modules are plain ESM.
 - No network operations yet: no fetch, pull, push, branch switching, rebase,
   stash, tags, or conflict resolution.
 - Staging is file-level; hunk and line staging are not implemented.
+- File history and a side-by-side diff view are not implemented yet; blame is
+  line-oriented and capped at 5000 lines.
 - Discard and undo are confirmed, but they are real local writes. Commits can
   run the repository's hooks, exactly as `git commit` would.
 - Web GUI only: the route bridge is reached over the Web HTTP carrier.

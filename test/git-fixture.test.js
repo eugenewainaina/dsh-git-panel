@@ -43,6 +43,7 @@ test('reader handles a working repo, history, commits, and conflicts', async () 
     await initRepo(repo);
     await write(repo, 'a.txt', 'one\n');
     await write(repo, 'b.txt', 'bee\n');
+    await write(repo, 'space.txt', 'one\n');
     git(repo, ['add', '.']);
     git(repo, ['commit', '-qm', 'init']);
 
@@ -63,6 +64,7 @@ test('reader handles a working repo, history, commits, and conflicts', async () 
     const headSha = git(repo, ['rev-parse', 'HEAD']).trim();
 
     await fs.appendFile(path.join(repo, 'a.txt'), 'changed\n');
+    await fs.writeFile(path.join(repo, 'space.txt'), 'one \n');
     await write(repo, 'notes.txt', 'untracked\n');
     await write(repo, 'staged.txt', 'staged\n');
     git(repo, ['add', 'staged.txt']);
@@ -112,9 +114,9 @@ test('reader handles a working repo, history, commits, and conflicts', async () 
     assert.equal(detail.summary.branch, 'main');
     assert.equal(detail.summary.detached, false);
     assert.equal(detail.summary.counts.staged, 1);
-    assert.equal(detail.summary.counts.unstaged, 1);
+    assert.equal(detail.summary.counts.unstaged, 2);
     assert.equal(detail.summary.counts.untracked, 2);
-    assert.equal(detail.summary.changedFiles, 4);
+    assert.equal(detail.summary.changedFiles, 5);
     assert.equal(detail.headCommit.sha, headSha);
     assert.equal(detail.headCommit.subject, 'rename');
     assert.ok(detail.commits.length >= 5);
@@ -145,6 +147,21 @@ test('reader handles a working repo, history, commits, and conflicts', async () 
     assert.equal(binaryDiff.binary, true);
     assert.equal(binaryDiff.patch, '');
 
+    const spaceDiff = await reader.diff(repo, { path: 'space.txt', group: 'unstaged' });
+    assert.match(spaceDiff.patch, /\+one /);
+    const whitespaceDiff = await reader.diff(repo, {
+      path: 'space.txt',
+      group: 'unstaged',
+      ignoreWhitespace: true,
+    });
+    assert.equal(whitespaceDiff.patch, '');
+    const oneContextDiff = await reader.diff(repo, {
+      path: 'a.txt',
+      group: 'unstaged',
+      context: 1,
+    });
+    assert.match(oneContextDiff.patch, /@@ -1 \+1,2 @@/);
+
     const commitDiff = await reader.diff(repo, {
       path: 'renamed.txt',
       group: 'commit',
@@ -154,6 +171,16 @@ test('reader handles a working repo, history, commits, and conflicts', async () 
 
     await assert.rejects(
       () => reader.diff(repo, { path: '../escape.txt', group: 'untracked' }),
+      (error) => error.code === 'bad-request',
+    );
+
+    const blame = await reader.blame(repo, { path: 'a.txt' });
+    assert.ok(blame.lines.length >= 1);
+    assert.equal(blame.lines[0].author, 'Panel Tester');
+    assert.equal(blame.lines[0].text, 'one');
+    assert.ok(blame.lines[0].sha);
+    await assert.rejects(
+      () => reader.blame(repo, { path: '../escape.txt' }),
       (error) => error.code === 'bad-request',
     );
 
@@ -168,7 +195,7 @@ test('reader handles a working repo, history, commits, and conflicts', async () 
 
     const summary = await reader.summary(repo);
     assert.equal(summary.repo, await fs.realpath(repo));
-    assert.equal(summary.counts.unstaged, 1);
+    assert.equal(summary.counts.unstaged, 2);
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }

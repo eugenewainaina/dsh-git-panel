@@ -96,6 +96,8 @@ export function createDispatcher(reader) {
               path: params.path,
               group: params.group,
               sha: params.sha,
+              ignoreWhitespace: params.ignoreWhitespace === true,
+              context: typeof params.context === 'number' ? params.context : 3,
               fresh,
               signal,
             }),
@@ -142,6 +144,22 @@ export function createDispatcher(reader) {
         case 'undo': {
           const repo = asAbsolutePath(params.repo, 'repo');
           return ok(await reader.undo(repo, { signal }));
+        }
+        case 'blame': {
+          const repo = asAbsolutePath(params.repo, 'repo');
+          if (typeof params.path !== 'string' || params.path.length === 0 || params.path.length > 4096) {
+            const error = new Error('path must be a repository-relative file path.');
+            error.code = 'bad-request';
+            error.details = { field: 'path' };
+            throw error;
+          }
+          return ok(
+            await reader.blame(repo, {
+              path: params.path,
+              fresh: params.fresh === true,
+              signal,
+            }),
+          );
         }
         default:
           return fail('bad-request', `Unknown endpoint: ${String(endpoint)}`);
