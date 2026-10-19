@@ -185,6 +185,12 @@ export function createDispatcher(reader) {
           const repo = asAbsolutePath(params.repo, 'repo');
           return ok(await reader.tags(repo, { fresh: params.fresh === true, signal }));
         }
+        case 'fetch':
+        case 'pull':
+        case 'push': {
+          const repo = asAbsolutePath(params.repo, 'repo');
+          return ok(await reader.sync(repo, endpoint, { signal }));
+        }
         case 'fileLog': {
           const repo = asAbsolutePath(params.repo, 'repo');
           if (typeof params.path !== 'string' || params.path.length === 0 || params.path.length > 4096) {

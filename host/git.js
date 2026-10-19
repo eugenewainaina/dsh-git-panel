@@ -135,13 +135,13 @@ export function createReader(options = {}) {
    * @param {AbortSignal | undefined} signal
    * @returns {Promise<string>}
    */
-  function execute(args, signal) {
+  function execute(args, signal, timeout = timeoutMs) {
     return new Promise((resolve, reject) => {
       try {
         execFile(
           'git',
           args,
-          { encoding: 'utf8', timeout: timeoutMs, maxBuffer, signal, env, windowsHide: true },
+          { encoding: 'utf8', timeout, maxBuffer, signal, env, windowsHide: true },
           (error, stdout, stderr) => {
             if (error) reject(classifyExec(error, stderr));
             else resolve(stdout);
@@ -159,9 +159,14 @@ export function createReader(options = {}) {
    * @param {AbortSignal | undefined} signal
    * @returns {Promise<string>}
    */
-  function git(repo, args, signal) {
+  function git(repo, args, signal, timeout = timeoutMs) {
     return limiter(
-      () => execute(['--literal-pathspecs', '-C', repo, '-c', 'core.fsmonitor=false', ...args], signal),
+      () =>
+        execute(
+          ['--literal-pathspecs', '-C', repo, '-c', 'core.fsmonitor=false', ...args],
+          signal,
+          timeout,
+        ),
       signal,
     );
   }
@@ -867,6 +872,25 @@ export function createReader(options = {}) {
     });
   }
 
+  /**
+   * @param {string} repo
+   * @param {'fetch' | 'pull' | 'push'} action
+   * @param {{ signal?: AbortSignal }} request
+   */
+  async function sync(repo, action, request = {}) {
+    return writeAction(async () => {
+      const root = await resolveRoot(repo, request.signal, false);
+      if (!root) throw panelError('not-a-repo', 'That folder is not inside a git repository.');
+      let args;
+      if (action === 'fetch') args = ['fetch', '--prune'];
+      else if (action === 'pull') args = ['pull', '--ff-only'];
+      else if (action === 'push') args = ['push'];
+      else throw panelError('bad-request', 'Unknown sync action.');
+      const output = await git(root, args, request.signal, 60_000);
+      return { ok: true, action, output: output.slice(0, 2000) };
+    });
+  }
+
   return {
     discover,
     summary,
@@ -883,5 +907,6 @@ export function createReader(options = {}) {
     branches,
     switchBranch,
     tags,
+    sync,
   };
 }

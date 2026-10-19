@@ -15,7 +15,7 @@ The goal is a guide card named **Git** in the right sidebar's Start page that op
 
 ## 2. Non-goals
 
-- No network or history-rewriting operations: no fetch, pull, push, checkout, branch switching, merge, rebase, cherry-pick, reset, or stash. Local stage/unstage/commit/amend/discard/undo are implemented.
+- No force pushes, merges, rebases, cherry-picks, resets, stashes, or conflict resolution. Local writes and fetch/fast-forward pull/push are implemented.
 - Write actions remain out of scope. The read-only unified diff is implemented.
 - No opening a changed file or commit file in the editor/preview.
 - No recursive repo scan below one level, no multi-repo merged change feed, no remote-branch lanes, no commit pagination.
@@ -31,7 +31,7 @@ The goal is a guide card named **Git** in the right sidebar's Start page that op
 | Detail layout | Sub-tabs **All / Changes / History**, default **All** |
 | History | Lane-drawn commit graph, all local branches + tags + HEAD, 150 commits |
 | Change depth | Status letters + line counts; commit file lists; unified diff on click |
-| Local writes | Stage/unstage, commit/amend/sign-off, discard with confirmation, undo last commit; no network operations |
+| Local writes and sync | Stage/unstage, commit/amend/sign-off, discard with confirmation, undo, branch switch/create, fetch, fast-forward pull, push |
 | Live updates | Client polling (detail 3s, overview 10s) + host cache |
 | Client↔Host | Authenticated `/git-panel` route carrying the Connection RPC envelope; client `ctx.connection.rpc.call` |
 | Localization | English UI; all strings through the `gitPanel` locale namespace |
@@ -94,7 +94,7 @@ Pinned header: back arrow (only when the overview has more than one repo), repo 
 
 - **All** — one scroll: summary card (branch, upstream, ahead/behind, counts, last commit) → first 5 change entries → latest 8 commits with graph → "View all changes" / "Full history" links that switch sub-tabs.
 - **Changes** — full-height list. Group order: **Conflicts**, **Staged**, **Unstaged**, **Untracked**; empty groups are hidden; headers are collapsible and show counts. Rows carry status letter, dimmed directory + primary filename, `+N −M` when known, rename as `old → new`, and "binary" instead of counts. An untracked directory is one row with a trailing slash. A clean tree shows "Working tree clean." Clicking a row opens its unified diff; an untracked directory row is not clickable.
-- **History** — full-height graph. Each row: lane lines and node, subject (truncated), ref chips (HEAD/local/remote/tag), author and relative time. Clicking a row expands its changed-file list, loaded lazily and cached. A merge commit diffs against its first parent, labelled as such. Clicking a changed file in the expanded list opens its unified diff. Cap 150 with a visible "Showing the latest 150 commits" note; the tab badge shows `150+` when truncated. The header branch chip opens a menu to switch or create local branches and lists the repository's tags. The diff header opens a line-oriented blame view and a file-history list for the current path; a text field filters changes and commits. The diff can switch between unified and side-by-side layouts, ignore whitespace, and change its context size.
+- **History** — full-height graph. Each row: lane lines and node, subject (truncated), ref chips (HEAD/local/remote/tag), author and relative time. Clicking a row expands its changed-file list, loaded lazily and cached. A merge commit diffs against its first parent, labelled as such. Clicking a changed file in the expanded list opens its unified diff. Cap 150 with a visible "Showing the latest 150 commits" note; the tab badge shows `150+` when truncated. The header branch chip opens a menu to switch or create local branches and lists the repository's tags. A sync menu offers fetch, fast-forward pull, and push, with confirmation for pull and push. The diff header opens a line-oriented blame view and a file-history list for the current path; a text field filters changes and commits. The diff can switch between unified and side-by-side layouts, ignore whitespace, and change its context size.
 
 ### 4.5 States
 
@@ -158,6 +158,9 @@ The body receives a small face through a wrapper component defined in `apply` �
 | `branches` | `{ repo: string, fresh?: boolean }` | `{ branches: Array<{ name, current, upstream, sha }>, current }` |
 | `switchBranch` | `{ repo: string, name: string, create?: boolean }` | `{ ok: true, branch: string }` |
 | `tags` | `{ repo: string, fresh?: boolean }` | `{ tags: Array<{ name, sha }> }` |
+| `fetch` | `{ repo: string }` | `{ ok: true, action, output }` |
+| `pull` | `{ repo: string }` | `{ ok: true, action, output }` |
+| `push` | `{ repo: string }` | `{ ok: true, action, output }` |
 | `stage` / `unstage` | `{ repo: string, paths?: string[], all?: boolean }` | `{ ok: true }` |
 | `discard` | `{ repo: string, paths: string[], group: 'unstaged' \| 'untracked' }` | `{ ok: true }` |
 | `commitStaged` | `{ repo: string, message: string, amend?: boolean, signoff?: boolean }` | `{ ok: true, sha: string, output: string }` |
@@ -270,6 +273,9 @@ All commands use `execFile` (no shell), fixed argv, `-C <repo>`, `-c core.fsmoni
 | Branches | `git for-each-ref --format=%(refname:short)%09%(HEAD)%09%(upstream:short)%09%(objectname:short) refs/heads`. |
 | Switch/create | `git switch <name>` or `git switch -c <name>`, after `git check-ref-format --branch`; a dirty tree fails without force. |
 | Tags | `git tag --list --format=%(refname:short)%09%(objectname:short)`. |
+| Fetch | `git fetch --prune` (60s timeout). |
+| Pull | `git pull --ff-only` (60s timeout); local changes or divergence fail instead of creating a merge. |
+| Push | `git push` (60s timeout); no force, requires an upstream. |
 
 Every command is `execFile('git', ['-C', repo, '-c', 'core.fsmonitor=false', ...args])` with `GIT_OPTIONAL_LOCKS=0`, `GIT_TERMINAL_PROMPT=0`, and `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`, `GIT_COMMON_DIR` removed from the inherited environment. Timeout 10s, output cap 8 MB, git concurrency 3.
 
@@ -356,7 +362,7 @@ CSS is one stylesheet inserted once in `apply` through a `style[data-plugin-css]
 - `graph.test.js`: lane layout for linear, fork, merge, octopus, detached, and a 150-commit run; stable parent lanes, no collisions.
 - `git-fixture.test.js`: creates real temp repos with two branches and a merge, a rename (verified through `-M`), a conflict, an unborn repo, a worktree `.git` file, staged/untracked/binary files; asserts the reader and diff reader end-to-end and that `git status` before/after is identical.
 - `write.test.js`: stages, unstages (including an unborn branch), commits, amends, discards an unstaged change, deletes an untracked file, and undoes the first and a later commit.
-- Blame, file history, diff options, branches, and tags are covered by the fixture suite: line text/author, history entries, whitespace-only changes, context size, path-traversal rejection, branch create/switch, and tag listing; side-by-side pairing is covered by the client graph tests.
+- Blame, file history, diff options, branches, tags, and sync are covered by the fixture suite: line text/author, history entries, whitespace-only changes, context size, path-traversal rejection, branch create/switch, tag listing, and fetch/pull/push against a local bare remote; side-by-side pairing is covered by the client graph tests.
 - `rpc.test.js`: dispatcher validation — unknown endpoint, missing/invalid path, non-hex sha, `fresh` handling, and the business-failure envelope; the handler is called with a fake reader.
 - `graph.test.js`: lane layout for linear, fork, merge, octopus, detached, multiple roots, and a 150-commit run; stable parent lanes, no collisions.
 
@@ -374,6 +380,7 @@ All tests run with `node --test test/*.test.js` (24 tests).
 8. Write core: stage a file, commit it, amend it, discard an unstaged edit after confirming, and undo the last commit; each result is reflected in `git status` and the panel.
 9. Inspection: filter the change list and commit graph, toggle unified/side-by-side, whitespace, and context in a diff, open blame, and browse the file's history from the diff header.
 10. Branches: switch to a new branch, create one from the header menu, and confirm the tags list.
+11. Sync: fetch a local remote, fast-forward pull a new commit, and push a local commit; a failed pull/push surfaces in the error banner.
 
 Browser automation is not assumed; steps 4–7 are checked on the user's live page. If a headless browser can load the same URL, it is used for screenshots as well. Any step that cannot be verified is reported rather than claimed.
 

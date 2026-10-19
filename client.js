@@ -40,6 +40,16 @@ window.__ModuleLoader__.load({
       'branch.create': 'Create',
       'branch.loading': 'Loading branches…',
       'branch.tags': 'Tags',
+      'sync.title': 'Sync',
+      'sync.fetch': 'Fetch',
+      'sync.fetchHint': 'Update remote refs',
+      'sync.pull': 'Pull (fast-forward)',
+      'sync.push': 'Push',
+      'sync.noUpstream': 'No upstream branch',
+      'sync.pullTitle': 'Pull from upstream?',
+      'sync.pullText': 'Fast-forward only. Local changes or divergence will stop the pull.',
+      'sync.pushTitle': 'Push to upstream?',
+      'sync.pushText': 'Push the current branch without force to',
       'detail.all': 'All',
       'detail.changes': 'Changes',
       'detail.history': 'History',
@@ -294,6 +304,8 @@ window.__ModuleLoader__.load({
 .dgp-branch-btn{display:inline-flex;align-items:center;gap:4px;min-width:0;border:0;background:0 0;color:inherit;font:inherit;padding:2px 3px;border-radius:var(--dsw-radius-sm,4px);cursor:pointer}
 .dgp-branch-btn:hover{background:var(--dsw-alias-interactive-bg-hover)}
 .dgp-branch-menu{left:0;right:auto;min-width:230px}
+.dgp-sync-menu{min-width:220px}
+.dgp-menu-sub{display:block;color:var(--dsw-alias-label-tertiary);font-size:10.5px;font-weight:400;line-height:1.4;margin-top:1px}
 .dgp-menu-label{padding:4px 7px 2px;color:var(--dsw-alias-label-tertiary);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em}
 .dgp-menu-empty{padding:5px 7px;color:var(--dsw-alias-label-tertiary);font-size:11.5px;display:flex;align-items:center;gap:5px}
 .dgp-menu-divider{height:.5px;background:var(--dsw-alias-border-l3);margin:4px 0}
@@ -816,6 +828,19 @@ window.__ModuleLoader__.load({
         [
           h('circle', { key: 'c', cx: 12, cy: 12, r: 8, stroke: 'currentColor', strokeWidth: 1.7 }),
           h('path', { key: 'h', d: 'M12 7.5V12l3 2', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' }),
+        ],
+      );
+    }
+
+    function IconSync({ size = 13 }) {
+      return h(
+        'svg',
+        { className: 'dgp-icon', viewBox: '0 0 24 24', width: size, height: size, fill: 'none', 'aria-hidden': true },
+        [
+          h('path', { key: 'a', d: 'M20 11a8 8 0 0 0-14-5', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' }),
+          h('path', { key: 'b', d: 'M4 5v6h6', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' }),
+          h('path', { key: 'c', d: 'M4 13a8 8 0 0 0 14 5', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' }),
+          h('path', { key: 'd', d: 'M20 19v-6h-6', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' }),
         ],
       );
     }
@@ -2117,6 +2142,93 @@ window.__ModuleLoader__.load({
       );
     }
 
+    function SyncMenu({ summary, t, busy, onFetch, onPull, onPush }) {
+      const [open, setOpen] = useState(false);
+      const rootRef = useRef(null);
+
+      useEffect(() => {
+        if (!open) return undefined;
+        const onPointer = (event) => {
+          if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false);
+        };
+        const onKey = (event) => {
+          if (event.key === 'Escape') setOpen(false);
+        };
+        document.addEventListener('mousedown', onPointer);
+        document.addEventListener('keydown', onKey);
+        return () => {
+          document.removeEventListener('mousedown', onPointer);
+          document.removeEventListener('keydown', onKey);
+        };
+      }, [open]);
+
+      const run = (action) => {
+        setOpen(false);
+        action();
+      };
+      const upstream = summary && summary.upstream;
+
+      return h(
+        'span',
+        { className: 'dgp-branch-wrap', ref: rootRef },
+        h(
+          IconButton,
+          {
+            label: t('sync.title'),
+            onClick: () => setOpen((value) => !value),
+          },
+          busy ? h(Spinner) : h(IconSync),
+        ),
+        open
+          ? h(
+              'div',
+              { className: 'dgp-menu dgp-sync-menu', role: 'menu' },
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dgp-menu-item',
+                  disabled: busy,
+                  onClick: () => run(onFetch),
+                },
+                h(IconSync, { size: 12 }),
+                h(
+                  'span',
+                  { className: 'dgp-menu-name' },
+                  t('sync.fetch'),
+                  h('span', { className: 'dgp-menu-sub' }, t('sync.fetchHint')),
+                ),
+              ),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dgp-menu-item',
+                  disabled: busy || !upstream,
+                  title: upstream ? upstream : t('sync.noUpstream'),
+                  onClick: () => run(onPull),
+                },
+                h('span', { className: 'dgp-menu-name' }, t('sync.pull')),
+              ),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dgp-menu-item',
+                  disabled: busy || !upstream,
+                  title: upstream ? upstream : t('sync.noUpstream'),
+                  onClick: () => run(onPush),
+                },
+                h('span', { className: 'dgp-menu-name' }, t('sync.push')),
+              ),
+              upstream
+                ? h('div', { className: 'dgp-menu-empty' }, upstream)
+                : h('div', { className: 'dgp-menu-empty' }, t('sync.noUpstream')),
+            )
+          : null,
+      );
+    }
+
     function RepoSwitcher({ repos, current, onSelect, t }) {
       const [open, setOpen] = useState(false);
       const rootRef = useRef(null);
@@ -2343,6 +2455,9 @@ window.__ModuleLoader__.load({
       onSwitchBranch,
       tags,
       tagsState,
+      onFetch,
+      onPull,
+      onPush,
       onChoose,
       onRefresh,
       expanded,
@@ -2471,6 +2586,14 @@ window.__ModuleLoader__.load({
             h(
               'span',
               { className: 'dgp-actions' },
+              h(SyncMenu, {
+                summary,
+                t,
+                busy,
+                onFetch,
+                onPull,
+                onPush,
+              }),
               h(RepoSwitcher, { repos, current: repo, onSelect: onSwitch, t }),
               h(
                 IconButton,
@@ -3325,6 +3448,42 @@ window.__ModuleLoader__.load({
           setBranchRefresh((current) => current + 1);
         });
 
+      const syncAction = (action) =>
+        runWrite(async () => {
+          await callRpc(call, action, { repo: selectedRepo }, tab.signal);
+          setBranchRefresh((current) => current + 1);
+        });
+
+      const fetchNow = () => syncAction('fetch');
+
+      const pullNow = () => {
+        const summary = repoData[selectedRepo]?.value?.summary;
+        setConfirm({
+          title: t('sync.pullTitle'),
+          message:
+            t('sync.pullText') +
+            ' ' +
+            (summary && summary.upstream ? summary.upstream : ''),
+          label: t('sync.pull'),
+          danger: false,
+          run: () => syncAction('pull'),
+        });
+      };
+
+      const pushNow = () => {
+        const summary = repoData[selectedRepo]?.value?.summary;
+        setConfirm({
+          title: t('sync.pushTitle'),
+          message:
+            t('sync.pushText') +
+            ' ' +
+            (summary && summary.upstream ? summary.upstream : ''),
+          label: t('sync.push'),
+          danger: false,
+          run: () => syncAction('push'),
+        });
+      };
+
       const commitNow = async () => {
         const message = commitMessage.trim();
         if (!message && !amend) {
@@ -3505,6 +3664,9 @@ window.__ModuleLoader__.load({
             onSwitchBranch: switchBranch,
             tags,
             tagsState,
+            onFetch: fetchNow,
+            onPull: pullNow,
+            onPush: pushNow,
             onChoose: chooseFolder,
             onRefresh: refreshNow,
             expanded,
