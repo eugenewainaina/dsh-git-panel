@@ -33,6 +33,7 @@ window.__ModuleLoader__.load({
       'action.backToChanges': 'Back',
       'action.cancel': 'Cancel',
       'action.blame': 'Blame',
+      'action.fileHistory': 'File history',
       'detail.all': 'All',
       'detail.changes': 'Changes',
       'detail.history': 'History',
@@ -106,6 +107,9 @@ window.__ModuleLoader__.load({
       'blame.loading': 'Loading blame…',
       'blame.empty': 'No blame for this file.',
       'blame.truncated': 'Blame truncated at 5000 lines.',
+      'fileHistory.loading': 'Loading file history…',
+      'fileHistory.empty': 'No history for this file.',
+      'fileHistory.truncated': 'Showing the latest 100 commits for this file.',
       'repo.failed': 'Could not read this repository',
       'repo.clean': 'clean',
     };
@@ -262,6 +266,11 @@ window.__ModuleLoader__.load({
 .dgp-diff-title{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .dgp-diff-body{padding:0 0 16px;overflow:auto}
 .dgp-blame-body{padding:0 0 16px;overflow:auto}
+.dgp-file-history{display:flex;flex-direction:column}
+.dgp-file-history-row{width:100%;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:5px 12px;border:0;background:0 0;color:inherit;font:inherit;text-align:left;cursor:pointer;border-radius:var(--dsw-radius-sm,4px)}
+.dgp-file-history-row:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.dgp-file-history-main{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}
+.dgp-file-history-sha{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:var(--dsw-alias-label-tertiary);flex:none}
 .dgp-blame{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.55;min-width:max-content}
 .dgp-blame-line{display:flex;align-items:flex-start;min-height:17px;padding:0 8px 0 0;white-space:pre}
 .dgp-blame-line:hover{background:var(--dsw-alias-interactive-bg-hover)}
@@ -773,6 +782,17 @@ window.__ModuleLoader__.load({
         [
           h('circle', { key: 'head', cx: 12, cy: 7.5, r: 3.2, stroke: 'currentColor', strokeWidth: 1.7 }),
           h('path', { key: 'body', d: 'M5 20c0-4 3.2-6 7-6s7 2 7 6', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' }),
+        ],
+      );
+    }
+
+    function IconHistory({ size = 13 }) {
+      return h(
+        'svg',
+        { className: 'dgp-icon', viewBox: '0 0 24 24', width: size, height: size, fill: 'none', 'aria-hidden': true },
+        [
+          h('circle', { key: 'c', cx: 12, cy: 12, r: 8, stroke: 'currentColor', strokeWidth: 1.7 }),
+          h('path', { key: 'h', d: 'M12 7.5V12l3 2', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' }),
         ],
       );
     }
@@ -1434,7 +1454,7 @@ window.__ModuleLoader__.load({
       );
     }
 
-    function DiffPanel({ target, state, options, t, onBack, onRetry, onReload, onBlame }) {
+    function DiffPanel({ target, state, options, t, onBack, onRetry, onReload, onBlame, onFileHistory }) {
       const data = state && state.data;
       const rows = useMemo(
         () => (data && data.patch ? parsePatch(data.patch) : []),
@@ -1470,6 +1490,16 @@ window.__ModuleLoader__.load({
                   onClick: () => onBlame(target.path),
                 },
                 h(IconBlame),
+              )
+            : null,
+          onFileHistory
+            ? h(
+                IconButton,
+                {
+                  label: t('action.fileHistory'),
+                  onClick: () => onFileHistory(target.path),
+                },
+                h(IconHistory),
               )
             : null,
           h(
@@ -1760,6 +1790,68 @@ window.__ModuleLoader__.load({
       );
     }
 
+    function FileHistoryPanel({ target, state, t, onBack, onRetry, onOpenCommit }) {
+      const data = state && state.data;
+      const commits = data ? data.commits : [];
+
+      return h(
+        React.Fragment,
+        null,
+        h(
+          'div',
+          { className: 'dgp-diff-head' },
+          h(IconButton, { label: t('action.back'), onClick: onBack }, h(IconBack)),
+          h('span', { className: 'dgp-diff-title dgp-grow', title: target.path }, target.path),
+          h(
+            IconButton,
+            { label: t('action.retry'), onClick: onRetry },
+            state && state.loading ? h(Spinner) : h(IconRefresh),
+          ),
+        ),
+        h(
+          'div',
+          { className: 'dgp-body' },
+          !state || state.loading
+            ? h('div', { className: 'dgp-note' }, h(Spinner), ' ', t('fileHistory.loading'))
+            : state.error
+              ? h(ErrorState, { message: state.error, t, onRetry, onBack })
+              : commits.length === 0
+                ? h('div', { className: 'dgp-note' }, t('fileHistory.empty'))
+                : h(
+                    'div',
+                    { className: 'dgp-file-history' },
+                    commits.map((commit) =>
+                      h(
+                        'button',
+                        {
+                          key: commit.sha,
+                          type: 'button',
+                          className: 'dgp-file-history-row',
+                          onClick: () => onOpenCommit(commit),
+                          title: commit.subject,
+                        },
+                        h(
+                          'span',
+                          { className: 'dgp-file-history-main' },
+                          h('span', { className: 'dgp-subject' }, commit.subject || t('history.noSubject')),
+                          h(
+                            'span',
+                            { className: 'dgp-meta' },
+                            h('span', { className: 'dgp-meta-author' }, commit.author || ''),
+                            h('span', { className: 'dgp-meta-time' }, relativeTime(commit.authorTime, t)),
+                          ),
+                        ),
+                        h('span', { className: 'dgp-file-history-sha' }, shortSha(commit.sha)),
+                      ),
+                    ),
+                    data.truncated
+                      ? h('div', { className: 'dgp-note' }, t('fileHistory.truncated'))
+                      : null,
+                  ),
+        ),
+      );
+    }
+
     function RepoSwitcher({ repos, current, onSelect, t }) {
       const [open, setOpen] = useState(false);
       const rootRef = useRef(null);
@@ -1998,6 +2090,12 @@ window.__ModuleLoader__.load({
       onOpenBlame,
       onCloseBlame,
       onRetryBlame,
+      fileHistoryTarget,
+      fileHistoryState,
+      onOpenFileHistory,
+      onCloseFileHistory,
+      onRetryFileHistory,
+      onOpenFileCommit,
       commitMessage,
       onMessage,
       amend,
@@ -2107,7 +2205,7 @@ window.__ModuleLoader__.load({
               ),
             ),
           ),
-          diffTarget || blameTarget
+          diffTarget || blameTarget || fileHistoryTarget
             ? null
             : h(
             'div',
@@ -2158,6 +2256,15 @@ window.__ModuleLoader__.load({
               onBack: onCloseBlame,
               onRetry: onRetryBlame,
             })
+          : fileHistoryTarget
+          ? h(FileHistoryPanel, {
+              target: fileHistoryTarget,
+              state: fileHistoryState,
+              t,
+              onBack: onCloseFileHistory,
+              onRetry: onRetryFileHistory,
+              onOpenCommit: onOpenFileCommit,
+            })
           : diffTarget
           ? h(DiffPanel, {
               target: diffTarget,
@@ -2168,6 +2275,7 @@ window.__ModuleLoader__.load({
               onRetry: onRetryDiff,
               onReload: onReloadDiff,
               onBlame: onOpenBlame,
+              onFileHistory: onOpenFileHistory,
             })
           : h(
           'div',
@@ -2505,6 +2613,8 @@ window.__ModuleLoader__.load({
       const [diffOptions, setDiffOptions] = useState({ ignoreWhitespace: false, context: 3 });
       const [blameTarget, setBlameTarget] = useState(null);
       const [blameState, setBlameState] = useState(null);
+      const [fileHistoryTarget, setFileHistoryTarget] = useState(null);
+      const [fileHistoryState, setFileHistoryState] = useState(null);
       const [commitMessage, setCommitMessage] = useState('');
       const [amend, setAmend] = useState(false);
       const [signoff, setSignoff] = useState(false);
@@ -2514,6 +2624,7 @@ window.__ModuleLoader__.load({
       const alive = useRef(true);
       const diffController = useRef(null);
       const blameController = useRef(null);
+      const fileHistoryController = useRef(null);
       const writeBusy = useRef(false);
 
       useEffect(() => {
@@ -2527,6 +2638,7 @@ window.__ModuleLoader__.load({
         () => () => {
           if (diffController.current) diffController.current.abort();
           if (blameController.current) blameController.current.abort();
+          if (fileHistoryController.current) fileHistoryController.current.abort();
         },
         [],
       );
@@ -2536,10 +2648,14 @@ window.__ModuleLoader__.load({
         diffController.current = null;
         if (blameController.current) blameController.current.abort();
         blameController.current = null;
+        if (fileHistoryController.current) fileHistoryController.current.abort();
+        fileHistoryController.current = null;
         setDiffTarget(null);
         setDiffState(null);
         setBlameTarget(null);
         setBlameState(null);
+        setFileHistoryTarget(null);
+        setFileHistoryState(null);
         setCommitMessage('');
         setAmend(false);
         setSignoff(false);
@@ -2768,6 +2884,44 @@ window.__ModuleLoader__.load({
         if (blameTarget) openBlame(blameTarget.path);
       };
 
+      const closeFileHistory = () => {
+        if (fileHistoryController.current) {
+          fileHistoryController.current.abort();
+          fileHistoryController.current = null;
+        }
+        setFileHistoryTarget(null);
+        setFileHistoryState(null);
+      };
+
+      const openFileHistory = (path) => {
+        if (!selectedRepo || typeof path !== 'string' || !path) return;
+        if (fileHistoryController.current) fileHistoryController.current.abort();
+        const controller = new AbortController();
+        fileHistoryController.current = controller;
+        setFileHistoryTarget({ path });
+        setFileHistoryState({ loading: true });
+        callRpc(call, 'fileLog', { repo: selectedRepo, path }, controller.signal)
+          .then((data) => {
+            if (!controller.signal.aborted && alive.current) setFileHistoryState({ data });
+          })
+          .catch((error) => {
+            if (!controller.signal.aborted && alive.current && error?.code !== 'aborted') {
+              setFileHistoryState({ error: formatError(error, t) });
+            }
+          });
+      };
+
+      const retryFileHistory = () => {
+        if (fileHistoryTarget) openFileHistory(fileHistoryTarget.path);
+      };
+
+      const openFileCommit = (commit) => {
+        const path = fileHistoryTarget && fileHistoryTarget.path;
+        if (!path || !commit) return;
+        closeFileHistory();
+        openDiff({ path, group: 'commit', sha: commit.sha, status: 'M' });
+      };
+
       const openDiff = (target, options = diffOptions) => {
         if (!selectedRepo || !target) return;
         if (diffController.current) diffController.current.abort();
@@ -2806,6 +2960,7 @@ window.__ModuleLoader__.load({
       const changeView = (next) => {
         closeDiff();
         closeBlame();
+        closeFileHistory();
         setView(next);
       };
 
@@ -2943,6 +3098,7 @@ window.__ModuleLoader__.load({
       const selectRepo = (path) => {
         closeDiff();
         closeBlame();
+        closeFileHistory();
         setSelectedRepo(path);
         setExpanded({});
       };
@@ -2950,6 +3106,7 @@ window.__ModuleLoader__.load({
       const goBack = () => {
         closeDiff();
         closeBlame();
+        closeFileHistory();
         setSelectedRepo(null);
         setExpanded({});
       };
@@ -3030,6 +3187,12 @@ window.__ModuleLoader__.load({
             onOpenBlame: openBlame,
             onCloseBlame: closeBlame,
             onRetryBlame: retryBlame,
+            fileHistoryTarget,
+            fileHistoryState,
+            onOpenFileHistory: openFileHistory,
+            onCloseFileHistory: closeFileHistory,
+            onRetryFileHistory: retryFileHistory,
+            onOpenFileCommit: openFileCommit,
             commitMessage,
             onMessage: setCommitMessage,
             amend,

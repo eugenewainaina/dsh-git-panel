@@ -161,6 +161,22 @@ export function createDispatcher(reader) {
             }),
           );
         }
+        case 'fileLog': {
+          const repo = asAbsolutePath(params.repo, 'repo');
+          if (typeof params.path !== 'string' || params.path.length === 0 || params.path.length > 4096) {
+            const error = new Error('path must be a repository-relative file path.');
+            error.code = 'bad-request';
+            error.details = { field: 'path' };
+            throw error;
+          }
+          return ok(
+            await reader.fileLog(repo, {
+              path: params.path,
+              fresh: params.fresh === true,
+              signal,
+            }),
+          );
+        }
         default:
           return fail('bad-request', `Unknown endpoint: ${String(endpoint)}`);
       }

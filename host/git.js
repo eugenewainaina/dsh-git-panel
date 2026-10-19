@@ -760,6 +760,30 @@ export function createReader(options = {}) {
     });
   }
 
+  /**
+   * @param {string} repo
+   * @param {{ path?: string, fresh?: boolean, signal?: AbortSignal }} request
+   */
+  async function fileLog(repo, request = {}) {
+    const rel = relativeRepoPath(request.path);
+    const fresh = request.fresh === true;
+    const root = await resolveRoot(repo, request.signal, fresh);
+    if (!root) throw panelError('not-a-repo', 'That folder is not inside a git repository.');
+    return remember(`filelog:${root}:${rel}`, 10_000, fresh, async () => {
+      const output = await git(
+        root,
+        ['log', '--follow', '--max-count=100', '--decorate=full', '-z', LOG_PRETTY, '--', rel],
+        request.signal,
+      );
+      const commits = parseLog(output);
+      return {
+        path: rel,
+        commits: commits.slice(0, 100),
+        truncated: commits.length > 100,
+      };
+    });
+  }
+
   return {
     discover,
     summary,
@@ -772,5 +796,6 @@ export function createReader(options = {}) {
     commitStaged,
     undo: undoCommit,
     blame,
+    fileLog,
   };
 }

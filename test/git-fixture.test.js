@@ -184,6 +184,14 @@ test('reader handles a working repo, history, commits, and conflicts', async () 
       (error) => error.code === 'bad-request',
     );
 
+    const history = await reader.fileLog(repo, { path: 'a.txt' });
+    assert.ok(history.commits.length >= 1);
+    assert.equal(history.commits[0].author, 'Panel Tester');
+    await assert.rejects(
+      () => reader.fileLog(repo, { path: '../escape.txt' }),
+      (error) => error.code === 'bad-request',
+    );
+
     const conflicted = await reader.repo(conflict);
     assert.equal(conflicted.summary.counts.conflicts, 1);
     assert.ok(conflicted.changes.some((change) => change.group === 'conflict'));

@@ -94,7 +94,7 @@ Pinned header: back arrow (only when the overview has more than one repo), repo 
 
 - **All** — one scroll: summary card (branch, upstream, ahead/behind, counts, last commit) → first 5 change entries → latest 8 commits with graph → "View all changes" / "Full history" links that switch sub-tabs.
 - **Changes** — full-height list. Group order: **Conflicts**, **Staged**, **Unstaged**, **Untracked**; empty groups are hidden; headers are collapsible and show counts. Rows carry status letter, dimmed directory + primary filename, `+N −M` when known, rename as `old → new`, and "binary" instead of counts. An untracked directory is one row with a trailing slash. A clean tree shows "Working tree clean." Clicking a row opens its unified diff; an untracked directory row is not clickable.
-- **History** — full-height graph. Each row: lane lines and node, subject (truncated), ref chips (HEAD/local/remote/tag), author and relative time. Clicking a row expands its changed-file list, loaded lazily and cached. A merge commit diffs against its first parent, labelled as such. Clicking a changed file in the expanded list opens its unified diff. Cap 150 with a visible "Showing the latest 150 commits" note; the tab badge shows `150+` when truncated. The diff header opens a line-oriented blame view for the current path; a text field filters changes and commits.
+- **History** — full-height graph. Each row: lane lines and node, subject (truncated), ref chips (HEAD/local/remote/tag), author and relative time. Clicking a row expands its changed-file list, loaded lazily and cached. A merge commit diffs against its first parent, labelled as such. Clicking a changed file in the expanded list opens its unified diff. Cap 150 with a visible "Showing the latest 150 commits" note; the tab badge shows `150+` when truncated. The diff header opens a line-oriented blame view and a file-history list for the current path; a text field filters changes and commits.
 
 ### 4.5 States
 
@@ -154,6 +154,7 @@ The body receives a small face through a wrapper component defined in `apply` �
 | `commit` | `{ repo: string, sha: string }` | `CommitValue` |
 | `diff` | `{ repo: string, path: string, group: 'staged' \| 'unstaged' \| 'untracked' \| 'conflict' \| 'commit', sha?: string, ignoreWhitespace?: boolean, context?: number, fresh?: boolean }` | `DiffValue` |
 | `blame` | `{ repo: string, path: string, fresh?: boolean }` | `{ path: string, lines: Array<{ sha, line, author, authorTime, summary, text }>, truncated: boolean }` |
+| `fileLog` | `{ repo: string, path: string, fresh?: boolean }` | `{ path: string, commits: CommitEntry[], truncated: boolean }` |
 | `stage` / `unstage` | `{ repo: string, paths?: string[], all?: boolean }` | `{ ok: true }` |
 | `discard` | `{ repo: string, paths: string[], group: 'unstaged' \| 'untracked' }` | `{ ok: true }` |
 | `commitStaged` | `{ repo: string, message: string, amend?: boolean, signoff?: boolean }` | `{ ok: true, sha: string, output: string }` |
@@ -262,6 +263,7 @@ All commands use `execFile` (no shell), fixed argv, `-C <repo>`, `-c core.fsmoni
 | Commit diff | `git diff --no-color --no-ext-diff --unified=3 -M <sha>^1 <sha> -- <path>`; root commits use `git show --format= … <sha> -- <path>`. |
 | Untracked diff | Synthesized in the host from the file bytes as a `new file` patch; binary files return `binary: true`. |
 | Blame | `git blame --line-porcelain -- <path>`, parsed into final line, commit, author, and text; capped at 5000 lines. |
+| File history | `git log --follow --max-count=100 --decorate=full -z --pretty=… -- <path>`; capped at 100 commits. |
 
 Every command is `execFile('git', ['-C', repo, '-c', 'core.fsmonitor=false', ...args])` with `GIT_OPTIONAL_LOCKS=0`, `GIT_TERMINAL_PROMPT=0`, and `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`, `GIT_COMMON_DIR` removed from the inherited environment. Timeout 10s, output cap 8 MB, git concurrency 3.
 
@@ -348,7 +350,7 @@ CSS is one stylesheet inserted once in `apply` through a `style[data-plugin-css]
 - `graph.test.js`: lane layout for linear, fork, merge, octopus, detached, and a 150-commit run; stable parent lanes, no collisions.
 - `git-fixture.test.js`: creates real temp repos with two branches and a merge, a rename (verified through `-M`), a conflict, an unborn repo, a worktree `.git` file, staged/untracked/binary files; asserts the reader and diff reader end-to-end and that `git status` before/after is identical.
 - `write.test.js`: stages, unstages (including an unborn branch), commits, amends, discards an unstaged change, deletes an untracked file, and undoes the first and a later commit.
-- Blame and diff options are covered by the fixture suite: line text/author, whitespace-only changes, context size, and path-traversal rejection.
+- Blame, file history, and diff options are covered by the fixture suite: line text/author, history entries, whitespace-only changes, context size, and path-traversal rejection.
 - `rpc.test.js`: dispatcher validation — unknown endpoint, missing/invalid path, non-hex sha, `fresh` handling, and the business-failure envelope; the handler is called with a fake reader.
 - `graph.test.js`: lane layout for linear, fork, merge, octopus, detached, multiple roots, and a 150-commit run; stable parent lanes, no collisions.
 
@@ -364,7 +366,7 @@ All tests run with `node --test test/*.test.js` (24 tests).
 6. Reload: folder/repo/view persist.
 7. Edge states: empty folder, non-repo, empty repo, detached HEAD, light/dark, 360px.
 8. Write core: stage a file, commit it, amend it, discard an unstaged edit after confirming, and undo the last commit; each result is reflected in `git status` and the panel.
-9. Inspection: filter the change list and commit graph, toggle whitespace/context in a diff, and open blame from the diff header.
+9. Inspection: filter the change list and commit graph, toggle whitespace/context in a diff, open blame, and browse the file's history from the diff header.
 
 Browser automation is not assumed; steps 4–7 are checked on the user's live page. If a headless browser can load the same URL, it is used for screenshots as well. Any step that cannot be verified is reported rather than claimed.
 
