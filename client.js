@@ -331,7 +331,9 @@ window.__ModuleLoader__.load({
           }
         }
 
-        rows.push({ sha: commit.sha, lane, before, after: lanes.slice(), parents });
+        // Keep the commit's display fields on the row; `parents` is replaced by
+        // the lane-aware parent list the SVG needs.
+        rows.push({ ...commit, lane, before, after: lanes.slice(), parents });
       }
 
       let maxLanes = 0;

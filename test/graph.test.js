@@ -89,6 +89,18 @@ test('disconnected roots do not collide', () => {
   assert.deepEqual(rows.map((row) => row.lane), [0, 1, 0, 1]);
 });
 
+test('rows keep the commit display fields', () => {
+  const { rows } = layoutGraph([
+    { sha: 'c', parents: ['b'], subject: 'Subject', author: 'Ada', authorTime: 1, refs: [{ name: 'main', kind: 'head' }] },
+    { sha: 'b', parents: [], subject: 'Root', author: 'Ada', authorTime: 2, refs: [] },
+  ]);
+  assert.equal(rows[0].subject, 'Subject');
+  assert.equal(rows[0].author, 'Ada');
+  assert.equal(rows[0].authorTime, 1);
+  assert.deepEqual(rows[0].refs, [{ name: 'main', kind: 'head' }]);
+  assert.deepEqual(rows[0].parents, [{ sha: 'b', lane: 0 }]);
+});
+
 test('150 linear commits stay in one lane', () => {
   const commits = [];
   for (let index = 149; index >= 0; index -= 1) {
