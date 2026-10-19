@@ -51,7 +51,7 @@ Once this repository is pushed, a friend does not need a local clone:
 
 1. In their DSH Web GUI, open a Creator-mode session and ask the agent:
 
-   > Install the DSH plugin bundle from `github:<user>/dsh-git-panel`.
+   > Install the DSH plugin bundle from `github:eugenewainaina/dsh-git-panel`.
 
    The agent passes that spec to `plugin_manager install_bundle`; the manager
    fetches the repository into their profile. No npm publish is required.
@@ -60,8 +60,9 @@ Once this repository is pushed, a friend does not need a local clone:
 3. Reload the page and open **Start → Git**.
 
 The same requirements apply: a compatible DSH **Web GUI**, `git` on `PATH`, and
-permission to install profile plugins. A private repository additionally needs
-that person's Git credentials.
+permission to install profile plugins. This repository is public; the git spec
+was verified with `pnpm add github:eugenewainaina/dsh-git-panel`, which installs
+the bundle without a build step.
 
 ## Use
 
