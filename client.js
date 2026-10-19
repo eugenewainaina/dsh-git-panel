@@ -104,6 +104,7 @@ window.__ModuleLoader__.load({
       'diff.truncated': 'Diff truncated at 200 KB.',
       'diff.ignoreWhitespace': 'Ignore whitespace',
       'diff.context': 'Context',
+      'diff.sideBySide': 'Side by side',
       'blame.loading': 'Loading blame…',
       'blame.empty': 'No blame for this file.',
       'blame.truncated': 'Blame truncated at 5000 lines.',
@@ -265,6 +266,11 @@ window.__ModuleLoader__.load({
 .dgp-diff-head{flex:none;display:flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;border-bottom:.5px solid var(--dsw-alias-border-l3);min-width:0}
 .dgp-diff-title{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .dgp-diff-body{padding:0 0 16px;overflow:auto}
+.dgp-diff-split{display:flex;flex-direction:column}
+.dgp-split-row{display:grid;grid-template-columns:1fr 1fr;min-width:max-content}
+.dgp-split-cell{display:flex;align-items:flex-start;white-space:pre;min-width:0;border-right:.5px solid var(--dsw-alias-border-l3)}
+.dgp-split-cell:last-child{border-right:0}
+.dgp-split-empty{background:var(--dsw-alias-bg-layer-2);opacity:.45}
 .dgp-blame-body{padding:0 0 16px;overflow:auto}
 .dgp-file-history{display:flex;flex-direction:column}
 .dgp-file-history-row{width:100%;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:5px 12px;border:0;background:0 0;color:inherit;font:inherit;text-align:left;cursor:pointer;border-radius:var(--dsw-radius-sm,4px)}
@@ -1454,6 +1460,136 @@ window.__ModuleLoader__.load({
       );
     }
 
+    function pairPatchRows(rows) {
+      const items = [];
+      let deletions = [];
+      let additions = [];
+
+      const flush = () => {
+        const count = Math.max(deletions.length, additions.length);
+        for (let index = 0; index < count; index += 1) {
+          items.push({
+            kind: 'pair',
+            left: deletions[index] || null,
+            right: additions[index] || null,
+          });
+        }
+        deletions = [];
+        additions = [];
+      };
+
+      for (const row of rows) {
+        if (row.kind === 'del') {
+          deletions.push(row);
+          continue;
+        }
+        if (row.kind === 'add') {
+          additions.push(row);
+          continue;
+        }
+        flush();
+        items.push(row);
+      }
+      flush();
+      return items;
+    }
+
+    function UnifiedDiff({ rows }) {
+      return h(
+        'div',
+        { className: 'dgp-diff' },
+        rows.map((row, index) => {
+          if (row.kind === 'hunk') {
+            return h(
+              'div',
+              { key: index, className: 'dgp-diff-line dgp-diff-hunk' },
+              row.text,
+            );
+          }
+          if (row.kind === 'meta') {
+            return h(
+              'div',
+              { key: index, className: 'dgp-diff-line dgp-diff-meta' },
+              row.text,
+            );
+          }
+          const sign = row.kind === 'add' ? '+' : row.kind === 'del' ? '-' : ' ';
+          return h(
+            'div',
+            { key: index, className: 'dgp-diff-line dgp-diff-' + row.kind },
+            h('span', { className: 'dgp-diff-num' }, row.old === null ? '' : row.old),
+            h('span', { className: 'dgp-diff-num' }, row.new === null ? '' : row.new),
+            h('span', { className: 'dgp-diff-sign' }, sign),
+            h(
+              'span',
+              { className: 'dgp-diff-code' },
+              row.text === '' ? '\u00a0' : row.text,
+            ),
+          );
+        }),
+      );
+    }
+
+    function SideBySideDiff({ rows }) {
+      const items = pairPatchRows(rows);
+      return h(
+        'div',
+        { className: 'dgp-diff dgp-diff-split' },
+        items.map((item, index) => {
+          if (item.kind === 'hunk' || item.kind === 'meta') {
+            return h(
+              'div',
+              {
+                key: index,
+                className:
+                  'dgp-diff-line ' +
+                  (item.kind === 'hunk' ? 'dgp-diff-hunk' : 'dgp-diff-meta'),
+              },
+              item.text,
+            );
+          }
+          const left = item.kind === 'pair' ? item.left : item;
+          const right = item.kind === 'pair' ? item.right : item;
+          const leftText = left ? left.text : '';
+          const rightText = right ? right.text : '';
+          return h(
+            'div',
+            { key: index, className: 'dgp-split-row' },
+            h(
+              'div',
+              {
+                className:
+                  'dgp-split-cell ' +
+                  (left ? (left.kind === 'del' ? 'dgp-diff-del' : 'dgp-diff-ctx') : 'dgp-split-empty'),
+              },
+              h('span', { className: 'dgp-diff-num' }, left ? left.old : ''),
+              h('span', { className: 'dgp-diff-sign' }, left && left.kind === 'del' ? '-' : ' '),
+              h(
+                'span',
+                { className: 'dgp-diff-code' },
+                leftText === '' ? '\u00a0' : leftText,
+              ),
+            ),
+            h(
+              'div',
+              {
+                className:
+                  'dgp-split-cell ' +
+                  (right ? (right.kind === 'add' ? 'dgp-diff-add' : 'dgp-diff-ctx') : 'dgp-split-empty'),
+              },
+              h('span', { className: 'dgp-diff-num' }, right ? right.new : ''),
+              h('span', { className: 'dgp-diff-sign' }, right && right.kind === 'add' ? '+' : ' '),
+              h(
+                'span',
+                { className: 'dgp-diff-code' },
+                rightText === '' ? '\u00a0' : rightText,
+              ),
+            ),
+          );
+        }),
+      );
+    }
+
     function DiffPanel({ target, state, options, t, onBack, onRetry, onReload, onBlame, onFileHistory }) {
       const data = state && state.data;
       const rows = useMemo(
@@ -1461,6 +1597,7 @@ window.__ModuleLoader__.load({
         [data],
       );
       const visible = rows.slice(0, 4000);
+      const [sideBySide, setSideBySide] = useState(false);
       const title = target.oldPath ? target.oldPath + ' \u2192 ' + target.path : target.path;
 
       return h(
@@ -1539,6 +1676,16 @@ window.__ModuleLoader__.load({
               ),
             ),
           ),
+          h(
+            'label',
+            { className: 'dgp-check' },
+            h('input', {
+              type: 'checkbox',
+              checked: sideBySide,
+              onChange: (event) => setSideBySide(event.target.checked),
+            }),
+            t('diff.sideBySide'),
+          ),
         ),
         h(
           'div',
@@ -1557,40 +1704,11 @@ window.__ModuleLoader__.load({
                 : !data.patch
                   ? h('div', { className: 'dgp-note' }, t('diff.empty'))
                   : h(
-                      'div',
-                      { className: 'dgp-diff' },
-                      visible.map((row, index) => {
-                        if (row.kind === 'hunk') {
-                          return h(
-                            'div',
-                            { key: index, className: 'dgp-diff-line dgp-diff-hunk' },
-                            row.text,
-                          );
-                        }
-                        if (row.kind === 'meta') {
-                          return h(
-                            'div',
-                            { key: index, className: 'dgp-diff-line dgp-diff-meta' },
-                            row.text,
-                          );
-                        }
-                        const sign = row.kind === 'add' ? '+' : row.kind === 'del' ? '-' : ' ';
-                        return h(
-                          'div',
-                          {
-                            key: index,
-                            className: 'dgp-diff-line dgp-diff-' + row.kind,
-                          },
-                          h('span', { className: 'dgp-diff-num' }, row.old === null ? '' : row.old),
-                          h('span', { className: 'dgp-diff-num' }, row.new === null ? '' : row.new),
-                          h('span', { className: 'dgp-diff-sign' }, sign),
-                          h(
-                            'span',
-                            { className: 'dgp-diff-code' },
-                            row.text === '' ? '\u00a0' : row.text,
-                          ),
-                        );
-                      }),
+                      React.Fragment,
+                      null,
+                      sideBySide
+                        ? h(SideBySideDiff, { rows: visible })
+                        : h(UnifiedDiff, { rows: visible }),
                       data.truncated || rows.length > 4000
                         ? h('div', { className: 'dgp-note' }, t('diff.truncated'))
                         : null,
@@ -3383,7 +3501,7 @@ window.__ModuleLoader__.load({
     return {
       inject: ['slots', 'locale', 'sidebarRightTabs', 'connection', 'uiWorkspace'],
       apply,
-      __test: { layoutGraph, parsePatch },
+      __test: { layoutGraph, parsePatch, pairPatchRows },
     };
   },
 });

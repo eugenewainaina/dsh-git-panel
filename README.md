@@ -12,9 +12,9 @@ working tree, branches, and commit graph.
   ref chips and per-commit file lists.
 - **Live** — detail polls every 3s, the folder overview every 10s; both pause
   when the tab is hidden.
-- **Diffs** — click a changed file or a commit file to see the unified diff
-  with line numbers, colored hunks, optional whitespace ignoring, and a
-  context-size control.
+- **Diffs** — click a changed file or a commit file to see the diff with line
+  numbers, colored hunks, unified or side-by-side layout, optional whitespace
+  ignoring, and a context-size control.
 - **Inspection** — filter the change list and the commit graph by text, open
   blame for the current file, and browse that file's commit history from a diff.
 - **Write core** — stage/unstage files, commit, amend, sign off, discard a
@@ -117,10 +117,10 @@ node --check client.js
 node --test test/*.test.js
 ```
 
-29 tests cover the parsers against synthetic and real temporary repositories
+30 tests cover the parsers against synthetic and real temporary repositories
 (including merges, renames, conflicts, worktrees, unborn branches, and the write
 operations), the repository scanner, the RPC dispatcher, the HTTP envelope
-bridge, the commit lane layout, and the unified-diff parser.
+bridge, the commit lane layout, the unified-diff parser, and side-by-side pairing.
 
 `client.js` is plain JavaScript with no JSX and no bundler step; React is
 supplied by the host's module table. Host modules are plain ESM.
@@ -130,8 +130,8 @@ supplied by the host's module table. Host modules are plain ESM.
 - No network operations yet: no fetch, pull, push, branch switching, rebase,
   stash, tags, or conflict resolution.
 - Staging is file-level; hunk and line staging are not implemented.
-- A side-by-side diff view is not implemented yet; the diff is unified. Blame is
-  line-oriented and capped at 5000 lines; file history is capped at 100 commits.
+- Blame is line-oriented and capped at 5000 lines; file history is capped at
+  100 commits.
 - Discard and undo are confirmed, but they are real local writes. Commits can
   run the repository's hooks, exactly as `git commit` would.
 - Web GUI only: the route bridge is reached over the Web HTTP carrier.

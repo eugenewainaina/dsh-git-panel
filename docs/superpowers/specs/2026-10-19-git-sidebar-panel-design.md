@@ -94,7 +94,7 @@ Pinned header: back arrow (only when the overview has more than one repo), repo 
 
 - **All** — one scroll: summary card (branch, upstream, ahead/behind, counts, last commit) → first 5 change entries → latest 8 commits with graph → "View all changes" / "Full history" links that switch sub-tabs.
 - **Changes** — full-height list. Group order: **Conflicts**, **Staged**, **Unstaged**, **Untracked**; empty groups are hidden; headers are collapsible and show counts. Rows carry status letter, dimmed directory + primary filename, `+N −M` when known, rename as `old → new`, and "binary" instead of counts. An untracked directory is one row with a trailing slash. A clean tree shows "Working tree clean." Clicking a row opens its unified diff; an untracked directory row is not clickable.
-- **History** — full-height graph. Each row: lane lines and node, subject (truncated), ref chips (HEAD/local/remote/tag), author and relative time. Clicking a row expands its changed-file list, loaded lazily and cached. A merge commit diffs against its first parent, labelled as such. Clicking a changed file in the expanded list opens its unified diff. Cap 150 with a visible "Showing the latest 150 commits" note; the tab badge shows `150+` when truncated. The diff header opens a line-oriented blame view and a file-history list for the current path; a text field filters changes and commits.
+- **History** — full-height graph. Each row: lane lines and node, subject (truncated), ref chips (HEAD/local/remote/tag), author and relative time. Clicking a row expands its changed-file list, loaded lazily and cached. A merge commit diffs against its first parent, labelled as such. Clicking a changed file in the expanded list opens its unified diff. Cap 150 with a visible "Showing the latest 150 commits" note; the tab badge shows `150+` when truncated. The diff header opens a line-oriented blame view and a file-history list for the current path; a text field filters changes and commits. The diff can switch between unified and side-by-side layouts, ignore whitespace, and change its context size.
 
 ### 4.5 States
 
@@ -350,7 +350,7 @@ CSS is one stylesheet inserted once in `apply` through a `style[data-plugin-css]
 - `graph.test.js`: lane layout for linear, fork, merge, octopus, detached, and a 150-commit run; stable parent lanes, no collisions.
 - `git-fixture.test.js`: creates real temp repos with two branches and a merge, a rename (verified through `-M`), a conflict, an unborn repo, a worktree `.git` file, staged/untracked/binary files; asserts the reader and diff reader end-to-end and that `git status` before/after is identical.
 - `write.test.js`: stages, unstages (including an unborn branch), commits, amends, discards an unstaged change, deletes an untracked file, and undoes the first and a later commit.
-- Blame, file history, and diff options are covered by the fixture suite: line text/author, history entries, whitespace-only changes, context size, and path-traversal rejection.
+- Blame, file history, and diff options are covered by the fixture suite: line text/author, history entries, whitespace-only changes, context size, and path-traversal rejection; side-by-side pairing is covered by the client graph tests.
 - `rpc.test.js`: dispatcher validation — unknown endpoint, missing/invalid path, non-hex sha, `fresh` handling, and the business-failure envelope; the handler is called with a fake reader.
 - `graph.test.js`: lane layout for linear, fork, merge, octopus, detached, multiple roots, and a 150-commit run; stable parent lanes, no collisions.
 
@@ -366,7 +366,7 @@ All tests run with `node --test test/*.test.js` (24 tests).
 6. Reload: folder/repo/view persist.
 7. Edge states: empty folder, non-repo, empty repo, detached HEAD, light/dark, 360px.
 8. Write core: stage a file, commit it, amend it, discard an unstaged edit after confirming, and undo the last commit; each result is reflected in `git status` and the panel.
-9. Inspection: filter the change list and commit graph, toggle whitespace/context in a diff, open blame, and browse the file's history from the diff header.
+9. Inspection: filter the change list and commit graph, toggle unified/side-by-side, whitespace, and context in a diff, open blame, and browse the file's history from the diff header.
 
 Browser automation is not assumed; steps 4–7 are checked on the user's live page. If a headless browser can load the same URL, it is used for screenshots as well. Any step that cannot be verified is reported rather than claimed.
 

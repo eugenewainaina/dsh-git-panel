@@ -26,6 +26,7 @@ assert.equal(captured.id, '@local/dsh-git-panel');
 const plugin = captured.factory(() => React);
 const layoutGraph = plugin.__test.layoutGraph;
 const parsePatch = plugin.__test.parsePatch;
+const pairPatchRows = plugin.__test.pairPatchRows;
 
 const commit = (sha, ...parents) => ({ sha, parents });
 
@@ -121,6 +122,21 @@ test('parsePatch tracks add, delete, and context line numbers', () => {
       ['ctx', 2, 2, 'same'],
     ],
   );
+});
+
+test('pairPatchRows pairs deletions with additions', () => {
+  const rows = parsePatch(
+    'diff --git a/x b/x\n' +
+      '@@ -1,2 +1,2 @@\n' +
+      '-old\n' +
+      '+new\n' +
+      ' ctx\n',
+  );
+  const items = pairPatchRows(rows);
+  const pair = items.find((item) => item.kind === 'pair');
+  assert.equal(pair.left.text, 'old');
+  assert.equal(pair.right.text, 'new');
+  assert.ok(items.some((item) => item.kind === 'ctx'));
 });
 
 test('150 linear commits stay in one lane', () => {
